@@ -93,7 +93,7 @@ export default function ManagementDashboard({ filters }) {
               icon={AlertCircle}
             />
             <KPICard
-              title="In Bearbeitung"
+              title="Aktuell in Bearbeitung"
               value={kpiData.ticketsInProgress}
               icon={Ticket}
             />

@@ -4,7 +4,7 @@ import KPICard from '../components/KPICard';
 import FilterDropdowns from '../components/FilterDropdowns';
 import StatusBarChart from '../components/charts/StatusBarChart';
 import CategoryPieChart from '../components/charts/CategoryPieChart';
-import { fetchReporterKPIs } from '../services/api';
+import { fetchReporterKPIs, fetchManagementKPIs } from '../services/api';
 
 export default function ReporterDashboard({ filters, preselectedReporter }) {
   const [reporter, setReporter] = useState('');
@@ -13,7 +13,13 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
   const [category, setCategory] = useState('all');
   const [priority, setPriority] = useState('all');
   const [kpiData, setKpiData] = useState(null);
+  const [overallKPIs, setOverallKPIs] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [overallLoading, setOverallLoading] = useState(true);
+
+  useEffect(() => {
+    loadOverallKPIs();
+  }, [category, priority]);
 
   useEffect(() => {
     if (preselectedReporter && filters?.reporters) {
@@ -37,6 +43,16 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
       loadKPIs();
     }
   }, [reporterId, category, priority]);
+
+  const loadOverallKPIs = async () => {
+    try {
+      const data = await fetchManagementKPIs(category, priority);
+      setOverallKPIs(data);
+    } catch (error) {
+      console.error('Error loading overall KPIs:', error);
+    }
+    setOverallLoading(false);
+  };
 
   const loadKPIs = async () => {
     setLoading(true);
@@ -105,6 +121,43 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
     animation: 'spin 1s linear infinite'
   };
 
+  const highlightGridStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '1rem',
+    marginBottom: '2rem'
+  };
+
+  const highlightCardStyle = {
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '1rem',
+    padding: '2rem',
+    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    border: '2px solid var(--accent-primary)',
+    textAlign: 'center'
+  };
+
+  const highlightValueStyle = {
+    fontSize: '3rem',
+    fontWeight: 700,
+    color: 'var(--accent-primary)',
+    margin: '0.5rem 0'
+  };
+
+  const highlightLabelStyle = {
+    fontSize: '1rem',
+    fontWeight: 500,
+    color: 'var(--text-secondary)'
+  };
+
+  const sectionTitleStyle = {
+    fontSize: '1rem',
+    fontWeight: 600,
+    color: 'var(--text-secondary)',
+    marginBottom: '0.75rem',
+    marginTop: '1.5rem'
+  };
+
   if (notInList) {
     return (
       <div>
@@ -120,6 +173,19 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
   return (
     <div>
       <h2 style={titleStyle}>Reporter Dashboard</h2>
+
+      {!overallLoading && overallKPIs && (
+        <div style={highlightGridStyle}>
+          <div style={highlightCardStyle}>
+            <div style={highlightLabelStyle}>Aktuell in Bearbeitung</div>
+            <div style={highlightValueStyle}>{overallKPIs.ticketsInProgress}</div>
+          </div>
+          <div style={highlightCardStyle}>
+            <div style={highlightLabelStyle}>Dieses Jahr geschlossen</div>
+            <div style={highlightValueStyle}>{overallKPIs.ticketsClosedThisYear}</div>
+          </div>
+        </div>
+      )}
 
       <FilterDropdowns
         filters={filters}
@@ -148,6 +214,7 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
 
       {reporter && kpiData && !loading && (
         <>
+          <div style={sectionTitleStyle}>Meine Tickets</div>
           <div className="kpi-grid">
             <KPICard
               title="Neue Tickets"
@@ -155,7 +222,7 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
               icon={AlertCircle}
             />
             <KPICard
-              title="In Bearbeitung"
+              title="Aktuell in Bearbeitung"
               value={kpiData.ticketsInProgress}
               icon={Ticket}
             />

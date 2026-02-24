@@ -147,7 +147,7 @@ export default function AgentDashboard({ filters, preselectedAgent }) {
               icon={Ticket}
             />
             <KPICard
-              title="In Bearbeitung"
+              title="Aktuell in Bearbeitung"
               value={kpiData.ticketsInProgress}
               icon={Users}
             />
@@ -167,7 +167,7 @@ export default function AgentDashboard({ filters, preselectedAgent }) {
             <ComparisonBarChart
               data={[
                 { 
-                  name: 'In Bearbeitung', 
+                  name: 'Aktuell in Bearbeitung', 
                   ich: kpiData.ticketsInProgress, 
                   kollegen: kpiData.avgColleaguesInProgress 
                 },
