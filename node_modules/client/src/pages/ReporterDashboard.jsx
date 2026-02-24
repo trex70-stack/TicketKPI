@@ -6,28 +6,53 @@ import StatusBarChart from '../components/charts/StatusBarChart';
 import CategoryPieChart from '../components/charts/CategoryPieChart';
 import { fetchReporterKPIs } from '../services/api';
 
-export default function ReporterDashboard({ filters }) {
+export default function ReporterDashboard({ filters, preselectedReporter }) {
   const [reporter, setReporter] = useState('');
+  const [reporterId, setReporterId] = useState(null);
+  const [notInList, setNotInList] = useState(false);
   const [category, setCategory] = useState('all');
   const [priority, setPriority] = useState('all');
   const [kpiData, setKpiData] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (reporter) {
+    if (preselectedReporter && filters?.reporters) {
+      const found = filters.reporters.find(r => 
+        r.name && r.name.toLowerCase() === preselectedReporter.toLowerCase()
+      );
+      if (found) {
+        setReporter(found.name);
+        setReporterId(found.id);
+        setNotInList(false);
+      } else {
+        setNotInList(true);
+      }
+    } else if (!preselectedReporter) {
+      setNotInList(false);
+    }
+  }, [preselectedReporter, filters?.reporters]);
+
+  useEffect(() => {
+    if (reporterId) {
       loadKPIs();
     }
-  }, [reporter, category, priority]);
+  }, [reporterId, category, priority]);
 
   const loadKPIs = async () => {
     setLoading(true);
     try {
-      const data = await fetchReporterKPIs(reporter, category, priority);
+      const data = await fetchReporterKPIs(reporterId, category, priority);
       setKpiData(data);
     } catch (error) {
       console.error('Error loading KPIs:', error);
     }
     setLoading(false);
+  };
+
+  const handleReporterChange = (name) => {
+    setReporter(name);
+    const found = filters?.reporters?.find(r => r.name === name);
+    setReporterId(found?.id || null);
   };
 
   const formatTime = (minutes) => {
@@ -61,6 +86,16 @@ export default function ReporterDashboard({ filters }) {
     color: 'var(--text-secondary)'
   };
 
+  const errorStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '200px',
+    color: '#dc2626',
+    textAlign: 'center',
+    padding: '2rem'
+  };
+
   const spinnerStyle = {
     width: '32px',
     height: '32px',
@@ -69,6 +104,18 @@ export default function ReporterDashboard({ filters }) {
     borderRadius: '50%',
     animation: 'spin 1s linear infinite'
   };
+
+  if (notInList) {
+    return (
+      <div>
+        <h2 style={titleStyle}>Reporter Dashboard</h2>
+        <div style={errorStyle}>
+          Sie sind nicht in der Reporter-Liste enthalten.<br/>
+          Dieses Dashboard ist für Sie nicht verfügbar.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -81,9 +128,10 @@ export default function ReporterDashboard({ filters }) {
         priority={priority}
         setPriority={setPriority}
         selectedPerson={reporter}
-        setSelectedPerson={setReporter}
+        setSelectedPerson={handleReporterChange}
         personLabel="Reporter"
         personType="reporters"
+        personDisabled={!!preselectedReporter}
       />
 
       {!reporter && (

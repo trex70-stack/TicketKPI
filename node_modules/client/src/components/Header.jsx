@@ -1,14 +1,6 @@
-import { LayoutDashboard, User, Users, Moon, Sun } from 'lucide-react';
+import { LayoutDashboard, User, Users, Moon, Sun, LogOut, Settings } from 'lucide-react';
 
-const navItems = [
-  { id: 'reporter', label: 'Reporter', icon: User },
-  { id: 'management', label: 'Management', icon: LayoutDashboard },
-  { id: 'agent', label: 'Agent', icon: Users },
-];
-
-export function Header({ activeView, setActiveView, darkMode, setDarkMode, isMobile }) {
-  if (!isMobile) return null;
-
+export function Header({ activeView, setActiveView, darkMode, setDarkMode, isAdmin, onLogout, availableViews }) {
   const headerStyle = {
     backgroundColor: 'var(--bg-secondary)',
     borderBottom: '1px solid var(--border-color)',
@@ -28,6 +20,12 @@ export function Header({ activeView, setActiveView, darkMode, setDarkMode, isMob
     fontSize: '1.125rem',
     fontWeight: 700,
     color: 'var(--text-primary)'
+  };
+
+  const buttonGroupStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem'
   };
 
   const buttonStyle = {
@@ -54,9 +52,9 @@ export function Header({ activeView, setActiveView, darkMode, setDarkMode, isMob
     fontSize: '0.875rem',
     fontWeight: 500,
     cursor: 'pointer',
-    backgroundColor: isActive ? '#e0f2fe' : 'transparent',
-    color: isActive ? '#0284c7' : 'var(--text-secondary)',
-    borderBottom: isActive ? '2px solid #0ea5e9' : 'none',
+    backgroundColor: isActive ? 'var(--bg-accent)' : 'transparent',
+    color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
+    borderBottom: isActive ? '2px solid var(--accent-primary)' : 'none',
     border: 'none'
   });
 
@@ -68,18 +66,36 @@ export function Header({ activeView, setActiveView, darkMode, setDarkMode, isMob
     <header style={headerStyle}>
       <div style={topRowStyle}>
         <h1 style={titleStyle}>Ticket KPIs</h1>
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          style={buttonStyle}
-          aria-label={darkMode ? 'Light Mode' : 'Dark Mode'}
-        >
-          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
+        <div style={buttonGroupStyle}>
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            style={buttonStyle}
+            aria-label={darkMode ? 'Light Mode' : 'Dark Mode'}
+          >
+            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+          {isAdmin && (
+            <button
+              onClick={() => window.location.href = '/admin'}
+              style={buttonStyle}
+              aria-label="Admin"
+            >
+              <Settings size={20} />
+            </button>
+          )}
+          <button
+            onClick={onLogout}
+            style={buttonStyle}
+            aria-label="Logout"
+          >
+            <LogOut size={20} />
+          </button>
+        </div>
       </div>
       
       <nav style={navStyle}>
-        {navItems.map((item) => {
-          const Icon = item.icon;
+        {availableViews.map((item) => {
+          const Icon = item.id === 'reporter' ? User : item.id === 'management' ? LayoutDashboard : Users;
           const isActive = activeView === item.id;
           return (
             <button
@@ -94,96 +110,5 @@ export function Header({ activeView, setActiveView, darkMode, setDarkMode, isMob
         })}
       </nav>
     </header>
-  );
-}
-
-export function Sidebar({ activeView, setActiveView, darkMode, setDarkMode }) {
-  const asideStyle = {
-    width: '256px',
-    backgroundColor: 'var(--bg-secondary)',
-    borderRight: '1px solid var(--border-color)',
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '100vh',
-    flexShrink: 0
-  };
-
-  const headerStyle = {
-    padding: '1.5rem',
-    borderBottom: '1px solid var(--border-color)'
-  };
-
-  const titleStyle = {
-    fontSize: '1.25rem',
-    fontWeight: 700,
-    color: 'var(--text-primary)'
-  };
-
-  const subtitleStyle = {
-    fontSize: '0.875rem',
-    color: 'var(--text-secondary)',
-    marginTop: '0.25rem'
-  };
-
-  const navStyle = {
-    flex: 1,
-    padding: '1rem',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem'
-  };
-
-  const footerStyle = {
-    padding: '1rem',
-    borderTop: '1px solid var(--border-color)'
-  };
-
-  const darkModeButtonStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.75rem',
-    width: '100%',
-    padding: '0.75rem 1rem',
-    borderRadius: '0.5rem',
-    color: 'var(--text-primary)',
-    backgroundColor: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s'
-  };
-
-  return (
-    <aside style={asideStyle}>
-      <div style={headerStyle}>
-        <h1 style={titleStyle}>Ticket KPIs</h1>
-        <p style={subtitleStyle}>Dashboard</p>
-      </div>
-
-      <nav style={navStyle}>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div
-              key={item.id}
-              onClick={() => setActiveView(item.id)}
-              className={`sidebar-item ${activeView === item.id ? 'active' : ''}`}
-            >
-              <Icon size={20} />
-              <span>{item.label}</span>
-            </div>
-          );
-        })}
-      </nav>
-
-      <div style={footerStyle}>
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          style={darkModeButtonStyle}
-        >
-          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
-        </button>
-      </div>
-    </aside>
   );
 }

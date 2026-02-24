@@ -7,18 +7,22 @@
   --bg-primary: #f9fafb;
   --bg-secondary: #ffffff;
   --bg-tertiary: #f3f4f6;
+  --bg-accent: #e0f2fe;
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --border-color: #e5e7eb;
+  --accent-primary: #0ea5e9;
 }
 
 .dark {
   --bg-primary: #111827;
   --bg-secondary: #1f2937;
   --bg-tertiary: #374151;
+  --bg-accent: rgba(12, 74, 110, 0.5);
   --text-primary: #f9fafb;
   --text-secondary: #9ca3af;
   --border-color: #374151;
+  --accent-primary: #38bdf8;
 }
 
 * {

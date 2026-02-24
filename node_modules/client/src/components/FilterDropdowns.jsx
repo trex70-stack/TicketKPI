@@ -7,7 +7,8 @@ export default function FilterDropdowns({
   selectedPerson,
   setSelectedPerson,
   personLabel,
-  personType 
+  personType,
+  personDisabled = false
 }) {
   const personList = personType === 'reporters' ? filters.reporters : filters.agents;
 
@@ -49,6 +50,8 @@ export default function FilterDropdowns({
               value={selectedPerson}
               onChange={(e) => setSelectedPerson(e.target.value)}
               className="filter-select"
+              disabled={personDisabled}
+              style={personDisabled ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
             >
               <option value="">Bitte wählen...</option>
               {personList.map((person) => (

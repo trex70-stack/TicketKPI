@@ -5,6 +5,8 @@ import filtersRouter from './routes/filters.js';
 import reporterRouter from './routes/reporter.js';
 import managementRouter from './routes/management.js';
 import agentRouter from './routes/agent.js';
+import authRouter from './routes/auth.js';
+import usersRouter from './routes/users.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,6 +18,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.use('/api/auth', authRouter);
+app.use('/api/users', usersRouter);
 app.use('/api/filters', filtersRouter);
 app.use('/api/reporter', reporterRouter);
 app.use('/api/management', managementRouter);
