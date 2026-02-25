@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { getDB, saveDB } from '../db.js';
+import { getConfigDB, saveConfigDB } from '../db.js';
 
 const router = Router();
 
 function queryOne(sql, params = []) {
-  const db = getDB();
+  const db = getConfigDB();
   const stmt = db.prepare(sql);
   stmt.bind(params);
   let result = null;
@@ -16,7 +16,7 @@ function queryOne(sql, params = []) {
 }
 
 function queryAll(sql, params = []) {
-  const db = getDB();
+  const db = getConfigDB();
   const stmt = db.prepare(sql);
   stmt.bind(params);
   const results = [];
@@ -56,9 +56,9 @@ router.put('/:id/role', (req, res) => {
       return res.status(400).json({ error: 'Invalid role. Must be admin, management, or standard' });
     }
     
-    const db = getDB();
+    const db = getConfigDB();
     db.run('UPDATE users SET role = ?, updated_at = datetime("now") WHERE id = ?', [role, req.params.id]);
-    saveDB();
+    saveConfigDB();
     
     const user = queryOne('SELECT id, email, name, role FROM users WHERE id = ?', [req.params.id]);
     res.json(user);
@@ -75,12 +75,12 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Email and name are required' });
     }
     
-    const db = getDB();
+    const db = getConfigDB();
     db.run(
       'INSERT INTO users (azure_id, email, name, role) VALUES (?, ?, ?, ?)',
       [azure_id || null, email, name, role]
     );
-    saveDB();
+    saveConfigDB();
     
     const users = queryAll('SELECT id, azure_id, email, name, role FROM users ORDER BY id DESC LIMIT 1');
     res.status(201).json(users[0]);
@@ -96,9 +96,9 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    const db = getDB();
+    const db = getConfigDB();
     db.run('DELETE FROM users WHERE id = ?', [req.params.id]);
-    saveDB();
+    saveConfigDB();
     
     res.json({ message: 'User deleted successfully' });
   } catch (error) {

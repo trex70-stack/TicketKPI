@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { getDB, saveDB } from '../db.js';
+import { getConfigDB, saveConfigDB } from '../db.js';
 
 const router = Router();
 
 function queryOne(sql, params = []) {
-  const db = getDB();
+  const db = getConfigDB();
   const stmt = db.prepare(sql);
   stmt.bind(params);
   let result = null;
@@ -16,7 +16,7 @@ function queryOne(sql, params = []) {
 }
 
 function queryAll(sql, params = []) {
-  const db = getDB();
+  const db = getConfigDB();
   const stmt = db.prepare(sql);
   stmt.bind(params);
   const results = [];
@@ -28,9 +28,9 @@ function queryAll(sql, params = []) {
 }
 
 function run(sql, params = []) {
-  const db = getDB();
+  const db = getConfigDB();
   db.run(sql, params);
-  saveDB();
+  saveConfigDB();
 }
 
 router.get('/debug', (req, res) => {

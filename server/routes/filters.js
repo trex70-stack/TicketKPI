@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { getDB } from '../db.js';
+import { getKpiDB } from '../db.js';
 
 const router = Router();
 
 function queryAll(sql, params = []) {
-  const db = getDB();
+  const db = getKpiDB();
   const stmt = db.prepare(sql);
   stmt.bind(params);
   const results = [];
