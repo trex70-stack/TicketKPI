@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Shield, User, Briefcase, Trash2, UserPlus } from 'lucide-react';
+import { ArrowLeft, Shield, User, Briefcase, Trash2, UserPlus, Pencil, X, Check, Sun, Moon } from 'lucide-react';
 
 const getApiBase = () => {
   const host = window.location.hostname;
@@ -17,11 +17,28 @@ export default function AdminPanel() {
   const [success, setSuccess] = useState('');
   
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'standard' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'standard', kuerzel: '' });
+  
+  const [editingUser, setEditingUser] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', email: '', kuerzel: '' });
+  
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
 
   useEffect(() => {
     loadUsers();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
 
   const loadUsers = async () => {
     try {
@@ -48,6 +65,43 @@ export default function AdminPanel() {
       
       setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
       setSuccess('Rolle erfolgreich geändert');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const updateKuerzel = async (userId, newKuerzel) => {
+    setError('');
+    setSuccess('');
+    try {
+      const response = await fetch(`${getApiBase()}/users/${userId}/kuerzel`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kuerzel: newKuerzel })
+      });
+      if (!response.ok) throw new Error('Failed to update kuerzel');
+      
+      setUsers(users.map(u => u.id === userId ? { ...u, kuerzel: newKuerzel } : u));
+      setSuccess('Kürzel erfolgreich geändert');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const updateUser = async (userId, data) => {
+    setError('');
+    setSuccess('');
+    try {
+      const response = await fetch(`${getApiBase()}/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to update user');
+      
+      setUsers(users.map(u => u.id === userId ? { ...u, ...data } : u));
+      setEditingUser(null);
+      setSuccess('Benutzer erfolgreich geändert');
     } catch (err) {
       setError(err.message);
     }
@@ -94,12 +148,26 @@ export default function AdminPanel() {
       
       const createdUser = await response.json();
       setUsers([...users, createdUser]);
-      setNewUser({ name: '', email: '', role: 'standard' });
+      setNewUser({ name: '', email: '', role: 'standard', kuerzel: '' });
       setShowAddForm(false);
       setSuccess('Benutzer erfolgreich angelegt');
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const startEdit = (u) => {
+    setEditingUser(u.id);
+    setEditForm({ name: u.name, email: u.email, kuerzel: u.kuerzel || '' });
+  };
+
+  const cancelEdit = () => {
+    setEditingUser(null);
+    setEditForm({ name: '', email: '', kuerzel: '' });
+  };
+
+  const saveEdit = (userId) => {
+    updateUser(userId, editForm);
   };
 
   const getRoleIcon = (role) => {
@@ -145,6 +213,25 @@ export default function AdminPanel() {
     fontSize: '1.5rem',
     fontWeight: 600,
     color: 'var(--text-primary)'
+  };
+
+  const headerRightStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem'
+  };
+
+  const darkModeButtonStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    border: '1px solid var(--border-color)',
+    backgroundColor: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    cursor: 'pointer'
   };
 
   const addButtonStyle = {
@@ -199,29 +286,34 @@ export default function AdminPanel() {
     fontSize: '0.875rem'
   };
 
-  const deleteButtonStyle = {
+  const iconButtonStyle = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    color: '#dc2626',
-    padding: '0.25rem'
+    color: 'var(--text-secondary)',
+    padding: '0.25rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   };
 
   const errorStyle = {
-    color: '#dc2626',
+    color: darkMode ? '#fca5a5' : '#dc2626',
     fontSize: '0.875rem',
     marginBottom: '1rem',
     padding: '0.75rem',
-    backgroundColor: '#fef2f2',
+    backgroundColor: darkMode ? 'rgba(220, 38, 38, 0.2)' : '#fef2f2',
+    border: darkMode ? '1px solid rgba(220, 38, 38, 0.3)' : 'none',
     borderRadius: '0.5rem'
   };
 
   const successStyle = {
-    color: '#059669',
+    color: darkMode ? '#6ee7b7' : '#059669',
     fontSize: '0.875rem',
     marginBottom: '1rem',
     padding: '0.75rem',
-    backgroundColor: '#ecfdf5',
+    backgroundColor: darkMode ? 'rgba(5, 150, 105, 0.2)' : '#ecfdf5',
+    border: darkMode ? '1px solid rgba(5, 150, 105, 0.3)' : 'none',
     borderRadius: '0.5rem'
   };
 
@@ -254,6 +346,16 @@ export default function AdminPanel() {
     backgroundColor: 'var(--bg-primary)',
     color: 'var(--text-primary)',
     fontSize: '0.875rem'
+  };
+
+  const smallInputStyle = {
+    padding: '0.5rem',
+    borderRadius: '0.375rem',
+    border: '1px solid var(--border-color)',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
+    fontSize: '0.875rem',
+    minWidth: '100px'
   };
 
   const formActionsStyle = {
@@ -301,10 +403,19 @@ export default function AdminPanel() {
           </button>
           <h1 style={titleStyle}>Benutzerverwaltung</h1>
         </div>
-        <button style={addButtonStyle} onClick={() => setShowAddForm(!showAddForm)}>
-          <UserPlus size={18} />
-          Neuer Benutzer
-        </button>
+        <div style={headerRightStyle}>
+          <button 
+            style={darkModeButtonStyle} 
+            onClick={() => setDarkMode(!darkMode)}
+            title={darkMode ? 'Light Mode' : 'Dark Mode'}
+          >
+            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+          <button style={addButtonStyle} onClick={() => setShowAddForm(!showAddForm)}>
+            <UserPlus size={18} />
+            Neuer Benutzer
+          </button>
+        </div>
       </div>
 
       {error && <div style={errorStyle}>{error}</div>}
@@ -329,6 +440,13 @@ export default function AdminPanel() {
                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                 style={inputStyle}
               />
+              <input
+                type="text"
+                placeholder="Kürzel (z.B. MM)"
+                value={newUser.kuerzel}
+                onChange={(e) => setNewUser({ ...newUser, kuerzel: e.target.value })}
+                style={{ ...inputStyle, minWidth: '100px', maxWidth: '120px' }}
+              />
               <select
                 value={newUser.role}
                 onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
@@ -342,7 +460,7 @@ export default function AdminPanel() {
             <div style={formActionsStyle}>
               <button type="button" style={cancelButtonStyle} onClick={() => {
                 setShowAddForm(false);
-                setNewUser({ name: '', email: '', role: 'standard' });
+                setNewUser({ name: '', email: '', role: 'standard', kuerzel: '' });
               }}>
                 Abbrechen
               </button>
@@ -360,6 +478,7 @@ export default function AdminPanel() {
             <tr>
               <th style={thStyle}>Name</th>
               <th style={thStyle}>E-Mail</th>
+              <th style={thStyle}>Kürzel</th>
               <th style={thStyle}>Rolle</th>
               <th style={thStyle}>Aktionen</th>
             </tr>
@@ -368,15 +487,55 @@ export default function AdminPanel() {
             {users.map((u) => (
               <tr key={u.id} style={u.id === user?.id ? currentUserStyle : {}}>
                 <td style={tdStyle}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {getRoleIcon(u.role)}
-                    {u.name}
-                    {u.id === user?.id && (
-                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)' }}>(Du)</span>
-                    )}
-                  </div>
+                  {editingUser === u.id ? (
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      style={smallInputStyle}
+                    />
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {getRoleIcon(u.role)}
+                      {u.name}
+                      {u.id === user?.id && (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)' }}>(Du)</span>
+                      )}
+                    </div>
+                  )}
                 </td>
-                <td style={tdStyle}>{u.email}</td>
+                <td style={tdStyle}>
+                  {editingUser === u.id ? (
+                    <input
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      style={smallInputStyle}
+                    />
+                  ) : (
+                    u.email
+                  )}
+                </td>
+                <td style={tdStyle}>
+                  {editingUser === u.id ? (
+                    <input
+                      type="text"
+                      value={editForm.kuerzel}
+                      onChange={(e) => setEditForm({ ...editForm, kuerzel: e.target.value })}
+                      placeholder="z.B. MM"
+                      style={{ ...smallInputStyle, minWidth: '60px', maxWidth: '80px' }}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={u.kuerzel || ''}
+                      onChange={(e) => updateKuerzel(u.id, e.target.value)}
+                      placeholder="z.B. MM"
+                      style={{ ...smallInputStyle, minWidth: '60px', maxWidth: '80px' }}
+                      disabled
+                    />
+                  )}
+                </td>
                 <td style={tdStyle}>
                   <select
                     value={u.role}
@@ -390,15 +549,45 @@ export default function AdminPanel() {
                   </select>
                 </td>
                 <td style={tdStyle}>
-                  {u.id !== user?.id && u.email !== 'tk@contact.de' && (
-                    <button 
-                      style={deleteButtonStyle}
-                      onClick={() => deleteUser(u.id)}
-                      title="Benutzer löschen"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {editingUser === u.id ? (
+                      <>
+                        <button 
+                          style={{ ...iconButtonStyle, color: '#22c55e' }}
+                          onClick={() => saveEdit(u.id)}
+                          title="Speichern"
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button 
+                          style={{ ...iconButtonStyle, color: '#dc2626' }}
+                          onClick={cancelEdit}
+                          title="Abbrechen"
+                        >
+                          <X size={16} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button 
+                          style={iconButtonStyle}
+                          onClick={() => startEdit(u)}
+                          title="Bearbeiten"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        {u.id !== user?.id && u.email !== 'tk@contact.de' && (
+                          <button 
+                            style={{ ...iconButtonStyle, color: '#dc2626' }}
+                            onClick={() => deleteUser(u.id)}
+                            title="Löschen"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

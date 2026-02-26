@@ -23,9 +23,7 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
 
   useEffect(() => {
     if (preselectedReporter && filters?.reporters) {
-      const found = filters.reporters.find(r => 
-        r.name && r.name.toLowerCase() === preselectedReporter.toLowerCase()
-      );
+      const found = filters.reporters.find(r => r.id === preselectedReporter);
       if (found) {
         setReporter(found.name);
         setReporterId(found.id);
@@ -65,10 +63,10 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
     setLoading(false);
   };
 
-  const handleReporterChange = (name) => {
-    setReporter(name);
-    const found = filters?.reporters?.find(r => r.name === name);
-    setReporterId(found?.id || null);
+  const handleReporterChange = (id) => {
+    setReporterId(id || null);
+    const found = filters?.reporters?.find(r => r.id === id);
+    setReporter(found?.name || '');
   };
 
   const formatTime = (minutes) => {
@@ -193,7 +191,7 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
         setCategory={setCategory}
         priority={priority}
         setPriority={setPriority}
-        selectedPerson={reporter}
+        selectedPerson={reporterId}
         setSelectedPerson={handleReporterChange}
         personLabel="Reporter"
         personType="reporters"

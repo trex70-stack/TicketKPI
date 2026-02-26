@@ -18,9 +18,7 @@ export default function AgentDashboard({ filters, preselectedAgent }) {
 
   useEffect(() => {
     if (preselectedAgent && filters?.agents) {
-      const found = filters.agents.find(r => 
-        r.name && r.name.toLowerCase() === preselectedAgent.toLowerCase()
-      );
+      const found = filters.agents.find(r => r.id === preselectedAgent);
       if (found) {
         setAgent(found.name);
         setAgentId(found.id);
@@ -50,10 +48,10 @@ export default function AgentDashboard({ filters, preselectedAgent }) {
     setLoading(false);
   };
 
-  const handleAgentChange = (name) => {
-    setAgent(name);
-    const found = filters?.agents?.find(r => r.name === name);
-    setAgentId(found?.id || null);
+  const handleAgentChange = (id) => {
+    setAgentId(id || null);
+    const found = filters?.agents?.find(r => r.id === id);
+    setAgent(found?.name || '');
   };
 
   const formatTime = (minutes) => {
@@ -119,7 +117,7 @@ export default function AgentDashboard({ filters, preselectedAgent }) {
         setCategory={setCategory}
         priority={priority}
         setPriority={setPriority}
-        selectedPerson={agent}
+        selectedPerson={agentId}
         setSelectedPerson={handleAgentChange}
         personLabel="Agent"
         personType="agents"

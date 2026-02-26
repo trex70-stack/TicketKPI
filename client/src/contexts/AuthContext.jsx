@@ -17,11 +17,17 @@ export function AuthProvider({ children }) {
     try {
       const savedUser = localStorage.getItem('user');
       if (savedUser) {
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
         try {
-          const userData = JSON.parse(savedUser);
-          setUser(userData);
+          const response = await fetch(`${API_BASE}/users/${userData.id}`);
+          if (response.ok) {
+            const freshUserData = await response.json();
+            localStorage.setItem('user', JSON.stringify(freshUserData));
+            setUser(freshUserData);
+          }
         } catch (e) {
-          localStorage.removeItem('user');
+          console.error('Failed to refresh user data:', e);
         }
       }
     } catch (e) {
@@ -63,16 +69,16 @@ export function AuthProvider({ children }) {
   const isManagement = () => user?.role === 'management' || user?.role === 'admin';
   const canViewManagement = () => user?.role === 'management' || user?.role === 'admin';
 
-  const canViewReporter = (reporterName) => {
+  const canViewReporter = (reporterId) => {
     if (!user) return false;
-    if (user.role === 'admin' || user.role === 'management') return true;
-    return user.name === reporterName;
+    if (user.role === 'admin') return true;
+    return user.kuerzel === reporterId;
   };
 
-  const canViewAgent = (agentName) => {
+  const canViewAgent = (agentId) => {
     if (!user) return false;
-    if (user.role === 'admin' || user.role === 'management') return true;
-    return user.name === agentName;
+    if (user.role === 'admin') return true;
+    return user.kuerzel === agentId;
   };
 
   const isAuthenticated = () => !!user;

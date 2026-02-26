@@ -84,18 +84,14 @@ function DashboardLayout() {
 
   const isInReporterList = () => {
     if (user?.role === 'admin') return true;
-    if (!user?.name || !filters?.reporters) return false;
-    return filters.reporters.some(r => 
-      r.name && r.name.toLowerCase() === user.name.toLowerCase()
-    );
+    if (!user?.kuerzel || !filters?.reporters) return false;
+    return filters.reporters.some(r => r.id === user.kuerzel);
   };
 
   const isInAgentList = () => {
     if (user?.role === 'admin') return true;
-    if (!user?.name || !filters?.agents) return false;
-    return filters.agents.some(r => 
-      r.name && r.name.toLowerCase() === user.name.toLowerCase()
-    );
+    if (!user?.kuerzel || !filters?.agents) return false;
+    return filters.agents.some(r => r.id === user.kuerzel);
   };
 
   const canViewManagement = () => {
@@ -108,7 +104,7 @@ function DashboardLayout() {
     switch (activeView) {
       case 'reporter':
         if (isInReporterList()) {
-          return <ReporterDashboard filters={filters} preselectedReporter={isPreselected ? user.name : null} />;
+          return <ReporterDashboard filters={filters} preselectedReporter={isPreselected ? user.kuerzel : null} />;
         }
         return null;
       case 'management':
@@ -118,7 +114,7 @@ function DashboardLayout() {
         return null;
       case 'agent':
         if (isInAgentList()) {
-          return <AgentDashboard filters={filters} preselectedAgent={isPreselected ? user.name : null} />;
+          return <AgentDashboard filters={filters} preselectedAgent={isPreselected ? user.kuerzel : null} />;
         }
         return null;
       default:

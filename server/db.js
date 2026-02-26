@@ -1,4 +1,3 @@
-import initSqlJs from 'sql.js';
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -6,95 +5,269 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const kpiDbPath = join(__dirname, '..', 'cedm_all_data.db');
-const configDbPath = join(__dirname, '..', 'config.db');
+let config = null;
+let kpiConnection = null;
+let configConnection = null;
+let dbType = 'sqlite';
 
-let kpiDB = null;
-let configDB = null;
-let SQL = null;
-
-export async function initDB() {
-  SQL = await initSqlJs();
-  
-  // Load KPI database (read-only for ticket data)
-  if (existsSync(kpiDbPath)) {
-    const fileBuffer = readFileSync(kpiDbPath);
-    kpiDB = new SQL.Database(fileBuffer);
+function loadConfig() {
+  const configPath = join(__dirname, 'database.config.json');
+  if (existsSync(configPath)) {
+    const configData = readFileSync(configPath, 'utf8');
+    config = JSON.parse(configData);
   } else {
-    throw new Error(`KPI database file not found: ${kpiDbPath}`);
+    config = {
+      database: {
+        type: 'sqlite',
+        sqlite: {
+          kpiDatabase: './cedm_all_data-new.db',
+          configDatabase: './config.db'
+        },
+        oracle: {
+          user: '',
+          password: '',
+          connectString: '',
+          kpiSchema: 'CEDM',
+          configSchema: 'KPI_CONFIG'
+        }
+      },
+      server: { port: 3001 }
+    };
   }
-  
-  // Load or create config database
-  if (existsSync(configDbPath)) {
-    const fileBuffer = readFileSync(configDbPath);
-    configDB = new SQL.Database(fileBuffer);
-  } else {
-    configDB = new SQL.Database();
-  }
-  
-  initConfigTables();
-  
-  return { kpiDB, configDB };
+  return config;
 }
 
-function initConfigTables() {
-  configDB.run(`
+export function getConfig() {
+  if (!config) loadConfig();
+  return config;
+}
+
+export function getDbType() {
+  return dbType;
+}
+
+// SQLite Implementation
+class SQLiteConnection {
+  constructor(dbPath, isConfig = false) {
+    this.dbPath = dbPath;
+    this.isConfig = isConfig;
+    this.db = null;
+    this.SQL = null;
+  }
+
+  async init(SQL) {
+    this.SQL = SQL;
+    if (existsSync(this.dbPath)) {
+      const fileBuffer = readFileSync(this.dbPath);
+      this.db = new this.SQL.Database(fileBuffer);
+    } else if (this.isConfig) {
+      this.db = new this.SQL.Database();
+    } else {
+      throw new Error(`Database file not found: ${this.dbPath}`);
+    }
+    return this;
+  }
+
+  queryOne(sql, params = []) {
+    const stmt = this.db.prepare(sql);
+    stmt.bind(params);
+    let result = null;
+    if (stmt.step()) result = stmt.getAsObject();
+    stmt.free();
+    return result;
+  }
+
+  queryAll(sql, params = []) {
+    const stmt = this.db.prepare(sql);
+    stmt.bind(params);
+    const results = [];
+    while (stmt.step()) results.push(stmt.getAsObject());
+    stmt.free();
+    return results;
+  }
+
+  run(sql, params = []) {
+    this.db.run(sql, params);
+    this.save();
+  }
+
+  save() {
+    if (!this.db) return;
+    const data = this.db.export();
+    const buffer = Buffer.from(data);
+    writeFileSync(this.dbPath, buffer);
+  }
+
+  close() {
+    if (this.db) this.db.close();
+  }
+}
+
+// Oracle Implementation
+class OracleConnection {
+  constructor(config, isConfig = false) {
+    this.config = config;
+    this.isConfig = isConfig;
+    this.connection = null;
+    this.oracledb = null;
+    this.schema = isConfig ? config.configSchema : config.kpiSchema;
+  }
+
+  async init() {
+    try {
+      this.oracledb = await import('oracledb');
+      this.connection = await this.oracledb.getConnection({
+        user: this.config.user,
+        password: this.config.password,
+        connectString: this.config.connectString
+      });
+      console.log(`Oracle connection established to schema: ${this.schema}`);
+      return this;
+    } catch (error) {
+      console.error('Oracle connection error:', error.message);
+      throw error;
+    }
+  }
+
+  addSchemaPrefix(sql) {
+    const tables = ['cs_ticket_ticket', 'cs_ticket_prot', 'angestellter', 'cs_ticket_type', 'cs_ticket_priority', 'users'];
+    let result = sql;
+    tables.forEach(table => {
+      result = result.replace(new RegExp(`\\bFROM\\s+${table}\\b`, 'gi'), `FROM ${this.schema}.${table}`);
+      result = result.replace(new RegExp(`\\bJOIN\\s+${table}\\b`, 'gi'), `JOIN ${this.schema}.${table}`);
+      result = result.replace(new RegExp(`\\bINTO\\s+${table}\\b`, 'gi'), `INTO ${this.schema}.${table}`);
+      result = result.replace(new RegExp(`\\bUPDATE\\s+${table}\\b`, 'gi'), `UPDATE ${this.schema}.${table}`);
+    });
+    return result;
+  }
+
+  async queryOne(sql, params = []) {
+    const results = await this.queryAll(sql, params);
+    return results && results.length > 0 ? results[0] : null;
+  }
+
+  async queryAll(sql, params = []) {
+    try {
+      const fullSql = this.addSchemaPrefix(sql);
+      const result = await this.connection.execute(fullSql, params, {
+        outFormat: this.oracledb.OUT_FORMAT_OBJECT
+      });
+      return result.rows || [];
+    } catch (error) {
+      console.error('Oracle queryAll error:', error.message);
+      throw error;
+    }
+  }
+
+  async run(sql, params = []) {
+    try {
+      const fullSql = this.addSchemaPrefix(sql);
+      await this.connection.execute(fullSql, params, { autoCommit: true });
+    } catch (error) {
+      console.error('Oracle run error:', error.message);
+      throw error;
+    }
+  }
+
+  async save() {}
+
+  async close() {
+    if (this.connection) {
+      try { await this.connection.close(); } catch (e) {}
+    }
+  }
+}
+
+// Initialize database connections
+export async function initDB() {
+  loadConfig();
+  dbType = config.database.type.toLowerCase();
+  console.log(`Initializing ${dbType.toUpperCase()} database connection...`);
+
+  if (dbType === 'sqlite') {
+    const initSqlJs = (await import('sql.js')).default;
+    const SQL = await initSqlJs();
+    
+    const kpiDbPath = join(__dirname, '..', config.database.sqlite.kpiDatabase);
+    const configDbPath = join(__dirname, '..', config.database.sqlite.configDatabase);
+    
+    kpiConnection = new SQLiteConnection(kpiDbPath, false);
+    await kpiConnection.init(SQL);
+    
+    configConnection = new SQLiteConnection(configDbPath, true);
+    await configConnection.init(SQL);
+    
+    initConfigTablesSQLite();
+    
+  } else if (dbType === 'oracle') {
+    const oracleConfig = config.database.oracle;
+    
+    if (!oracleConfig.user || !oracleConfig.password || !oracleConfig.connectString) {
+      throw new Error('Oracle connection parameters not configured');
+    }
+    
+    kpiConnection = new OracleConnection(oracleConfig, false);
+    await kpiConnection.init();
+    
+    configConnection = new OracleConnection(oracleConfig, true);
+    await configConnection.init();
+  }
+
+  return { kpiConnection, configConnection };
+}
+
+function initConfigTablesSQLite() {
+  // Add kuerzel column if not exists
+  try {
+    configConnection.run(`ALTER TABLE users ADD COLUMN kuerzel TEXT`);
+  } catch (e) {
+    // Column already exists
+  }
+  
+  // Create table if not exists
+  configConnection.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       azure_id TEXT UNIQUE,
       email TEXT,
       name TEXT,
+      kuerzel TEXT,
       role TEXT DEFAULT 'standard',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
   
-  const defaultAdmin = configDB.exec("SELECT * FROM users WHERE email = 'tk@contact.de'");
-  if (defaultAdmin.length === 0 || defaultAdmin[0].values.length === 0) {
-    configDB.run(`
+  const defaultAdmin = configConnection.queryOne("SELECT * FROM users WHERE email = 'tk@contact.de'");
+  if (!defaultAdmin) {
+    configConnection.run(`
       INSERT INTO users (azure_id, email, name, role)
       VALUES ('default-admin', 'tk@contact.de', 'König, Thomas', 'admin')
     `);
-    saveConfigDB();
   }
-}
-
-export function saveConfigDB() {
-  if (!configDB) return;
-  const data = configDB.export();
-  const buffer = Buffer.from(data);
-  writeFileSync(configDbPath, buffer);
-}
-
-export function saveKpiDB() {
-  if (!kpiDB) return;
-  const data = kpiDB.export();
-  const buffer = Buffer.from(data);
-  writeFileSync(kpiDbPath, buffer);
 }
 
 export function getKpiDB() {
-  if (!kpiDB) {
-    throw new Error('KPI database not initialized. Call initDB() first.');
-  }
-  return kpiDB;
+  if (!kpiConnection) throw new Error('KPI database not initialized');
+  return kpiConnection;
 }
 
 export function getConfigDB() {
-  if (!configDB) {
-    throw new Error('Config database not initialized. Call initDB() first.');
-  }
-  return configDB;
+  if (!configConnection) throw new Error('Config database not initialized');
+  return configConnection;
 }
 
-// Legacy exports for backward compatibility
-export function getDB() {
-  return getKpiDB();
+export function saveConfigDB() {
+  if (configConnection) configConnection.save();
 }
 
-export function saveDB() {
-  return saveKpiDB();
+export function saveKpiDB() {
+  if (kpiConnection) kpiConnection.save();
 }
 
-export default { initDB, getKpiDB, getConfigDB, getDB, saveKpiDB, saveConfigDB, saveDB };
+export function getDB() { return getKpiDB(); }
+export function saveDB() { return saveKpiDB(); }
+
+export default { 
+  initDB, getKpiDB, getConfigDB, getDB, saveKpiDB, saveConfigDB, saveDB, getConfig, getDbType
+};

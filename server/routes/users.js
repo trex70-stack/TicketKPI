@@ -1,44 +1,22 @@
 import { Router } from 'express';
-import { getConfigDB, saveConfigDB } from '../db.js';
+import { getConfigDB, saveConfigDB, getDbType } from '../db.js';
 
 const router = Router();
 
-function queryOne(sql, params = []) {
-  const db = getConfigDB();
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  let result = null;
-  if (stmt.step()) {
-    result = stmt.getAsObject();
-  }
-  stmt.free();
-  return result;
-}
-
-function queryAll(sql, params = []) {
-  const db = getConfigDB();
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
-}
-
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const users = queryAll('SELECT id, email, name, role, created_at FROM users ORDER BY name');
+    const db = getConfigDB();
+    const users = await db.queryAll('SELECT id, email, name, kuerzel, role, created_at FROM users ORDER BY name', []);
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const user = queryOne('SELECT id, azure_id, email, name, role, created_at FROM users WHERE id = ?', [req.params.id]);
+    const db = getConfigDB();
+    const user = await db.queryOne('SELECT id, azure_id, email, name, kuerzel, role, created_at FROM users WHERE id = ?', [req.params.id]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -48,7 +26,7 @@ router.get('/:id', (req, res) => {
   }
 });
 
-router.put('/:id/role', (req, res) => {
+router.put('/:id/role', async (req, res) => {
   try {
     const { role } = req.body;
     
@@ -57,47 +35,118 @@ router.put('/:id/role', (req, res) => {
     }
     
     const db = getConfigDB();
-    db.run('UPDATE users SET role = ?, updated_at = datetime("now") WHERE id = ?', [role, req.params.id]);
+    const dbType = getDbType();
+    
+    if (dbType === 'oracle') {
+      await db.run('UPDATE users SET role = ?, updated_at = SYSDATE WHERE id = ?', [role, req.params.id]);
+    } else {
+      await db.run('UPDATE users SET role = ?, updated_at = datetime("now") WHERE id = ?', [role, req.params.id]);
+    }
     saveConfigDB();
     
-    const user = queryOne('SELECT id, email, name, role FROM users WHERE id = ?', [req.params.id]);
+    const user = await db.queryOne('SELECT id, email, name, kuerzel, role FROM users WHERE id = ?', [req.params.id]);
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.post('/', (req, res) => {
+router.put('/:id/kuerzel', async (req, res) => {
   try {
-    const { azure_id, email, name, role = 'standard' } = req.body;
+    const { kuerzel } = req.body;
+    const db = getConfigDB();
+    
+    await db.run('UPDATE users SET kuerzel = ?, updated_at = datetime("now") WHERE id = ?', [kuerzel || null, req.params.id]);
+    saveConfigDB();
+    
+    const user = await db.queryOne('SELECT id, email, name, kuerzel, role FROM users WHERE id = ?', [req.params.id]);
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const { name, email, kuerzel } = req.body;
+    const db = getConfigDB();
+    const dbType = getDbType();
+    
+    const fields = [];
+    const values = [];
+    
+    if (name !== undefined) {
+      fields.push('name = ?');
+      values.push(name);
+    }
+    if (email !== undefined) {
+      fields.push('email = ?');
+      values.push(email);
+    }
+    if (kuerzel !== undefined) {
+      fields.push('kuerzel = ?');
+      values.push(kuerzel || null);
+    }
+    
+    if (fields.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    if (dbType === 'oracle') {
+      fields.push('updated_at = SYSDATE');
+    } else {
+      fields.push('updated_at = datetime("now")');
+    }
+    
+    values.push(req.params.id);
+    
+    await db.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+    saveConfigDB();
+    
+    const user = await db.queryOne('SELECT id, email, name, kuerzel, role FROM users WHERE id = ?', [req.params.id]);
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const { azure_id, email, name, kuerzel, role = 'standard' } = req.body;
     
     if (!email || !name) {
       return res.status(400).json({ error: 'Email and name are required' });
     }
     
     const db = getConfigDB();
-    db.run(
-      'INSERT INTO users (azure_id, email, name, role) VALUES (?, ?, ?, ?)',
-      [azure_id || null, email, name, role]
+    await db.run(
+      'INSERT INTO users (azure_id, email, name, kuerzel, role) VALUES (?, ?, ?, ?, ?)',
+      [azure_id || null, email, name, kuerzel || null, role]
     );
     saveConfigDB();
     
-    const users = queryAll('SELECT id, azure_id, email, name, role FROM users ORDER BY id DESC LIMIT 1');
+    const dbType = getDbType();
+    let users;
+    if (dbType === 'oracle') {
+      users = await db.queryAll('SELECT id, azure_id, email, name, kuerzel, role FROM users WHERE id = (SELECT MAX(id) FROM users)', []);
+    } else {
+      users = await db.queryAll('SELECT id, azure_id, email, name, kuerzel, role FROM users ORDER BY id DESC LIMIT 1', []);
+    }
     res.status(201).json(users[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const user = queryOne('SELECT id FROM users WHERE id = ?', [req.params.id]);
+    const db = getConfigDB();
+    const user = await db.queryOne('SELECT id FROM users WHERE id = ?', [req.params.id]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    const db = getConfigDB();
-    db.run('DELETE FROM users WHERE id = ?', [req.params.id]);
+    await db.run('DELETE FROM users WHERE id = ?', [req.params.id]);
     saveConfigDB();
     
     res.json({ message: 'User deleted successfully' });

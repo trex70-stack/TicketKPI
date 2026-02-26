@@ -1,0 +1,19 @@
+{
+  "database": {
+    "type": "sqlite",
+    "sqlite": {
+      "kpiDatabase": "./cedm_all_data-new.db",
+      "configDatabase": "./config.db"
+    },
+    "oracle": {
+      "user": "",
+      "password": "",
+      "connectString": "",
+      "kpiSchema": "CEDM",
+      "configSchema": "KPI_CONFIG"
+    }
+  },
+  "server": {
+    "port": 3001
+  }
+}
