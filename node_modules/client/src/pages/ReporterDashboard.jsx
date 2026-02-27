@@ -5,6 +5,7 @@ import FilterDropdowns from '../components/FilterDropdowns';
 import StatusBarChart from '../components/charts/StatusBarChart';
 import CategoryPieChart from '../components/charts/CategoryPieChart';
 import { fetchReporterKPIs, fetchManagementKPIs } from '../services/api';
+import kpiLinksConfig from '../config/kpiLinks.json';
 
 const currentYear = new Date().getFullYear();
 
@@ -76,6 +77,12 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
     const days = Math.floor(minutes / (60 * 24));
     const hours = Math.round((minutes % (60 * 24)) / 60);
     return `${days}d ${hours}h`;
+  };
+
+  const getKpiLink = (kpiKey) => {
+    const config = kpiLinksConfig.reporter?.[kpiKey];
+    if (!config || !reporterId) return null;
+    return config.link.replace('{kuerzel}', reporterId);
   };
 
   const getCategoryPieData = () => {
@@ -221,18 +228,21 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
               value={kpiData.ticketsNew}
               icon={AlertCircle}
               tooltip="Neue Tickets, die noch nicht bearbeitet wurden (alle Jahre)"
+              link={getKpiLink('ticketsNew')}
             />
             <KPICard
               title="Aktuell in Bearbeitung"
               value={kpiData.ticketsInProgress}
               icon={Ticket}
               tooltip="Alle Tickets im Status 'Bearbeitung' (alle Jahre)"
+              link={getKpiLink('ticketsInProgress')}
             />
             <KPICard
               title="Gesamt"
               value={kpiData.ticketsTotal}
               icon={FileCheck}
               tooltip="Gesamtzahl aller Tickets (alle Jahre)"
+              link={getKpiLink('ticketsTotal')}
             />
             <KPICard
               title={`Ø Bearbeitungszeit ${currentYear}`}

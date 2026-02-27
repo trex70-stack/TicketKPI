@@ -1,4 +1,12 @@
-export default function KPICard({ title, value, unit, icon: Icon, trend, tooltip }) {
+export default function KPICard({ title, value, unit, icon: Icon, trend, tooltip, link }) {
+  const valueDisplay = typeof value === 'number' ? value.toLocaleString('de-DE') : value;
+  const valueContent = (
+    <>
+      {valueDisplay}
+      {unit && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: 'var(--text-secondary)', marginLeft: '0.25rem' }}>{unit}</span>}
+    </>
+  );
+
   return (
     <div className="kpi-card" title={tooltip} style={{ cursor: tooltip ? 'help' : 'default' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
@@ -17,10 +25,24 @@ export default function KPICard({ title, value, unit, icon: Icon, trend, tooltip
             marginTop: '0.25rem', 
             fontSize: '1.25rem', 
             fontWeight: 700, 
-            color: 'var(--text-primary)' 
+            color: link ? 'var(--accent-primary)' : 'var(--text-primary)'
           }}>
-            {typeof value === 'number' ? value.toLocaleString('de-DE') : value}
-            {unit && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: 'var(--text-secondary)', marginLeft: '0.25rem' }}>{unit}</span>}
+            {link ? (
+              <a 
+                href={link} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  color: 'inherit', 
+                  textDecoration: 'none',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+              >
+                {valueContent}
+              </a>
+            ) : valueContent}
           </p>
         </div>
         {Icon && (

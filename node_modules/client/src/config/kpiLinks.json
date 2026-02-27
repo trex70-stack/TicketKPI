@@ -1,0 +1,16 @@
+{
+  "reporter": {
+    "ticketsNew": {
+      "link": "http://cedm.contact.de/info/cs_ticket_ticket?search_on_navigate=true&search_attributes[0]=cs_ticket_ticket.reporter&search_attributes[1]=cs_ticket_ticket.status&search_values[0]={kuerzel}&search_values[1]=0",
+      "description": "Neue Tickets"
+    },
+    "ticketsInProgress": {
+      "link": "http://cedm.contact.de/info/cs_ticket_ticket?search_on_navigate=true&search_attributes[0]=cs_ticket_ticket.reporter&search_attributes[1]=cs_ticket_ticket.status&search_values[0]={kuerzel}&search_values[1]=80",
+      "description": "Tickets in Bearbeitung"
+    },
+    "ticketsTotal": {
+      "link": "http://cedm.contact.de/info/cs_ticket_ticket?search_on_navigate=true&search_attributes[0]=cs_ticket_ticket.reporter&search_values[0]={kuerzel}",
+      "description": "Alle Tickets"
+    }
+  }
+}
