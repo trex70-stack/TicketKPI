@@ -1,6 +1,6 @@
-export default function KPICard({ title, value, unit, icon: Icon, trend }) {
+export default function KPICard({ title, value, unit, icon: Icon, trend, tooltip }) {
   return (
-    <div className="kpi-card">
+    <div className="kpi-card" title={tooltip} style={{ cursor: tooltip ? 'help' : 'default' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <p style={{ 

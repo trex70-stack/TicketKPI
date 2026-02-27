@@ -6,6 +6,8 @@ import StatusBarChart from '../components/charts/StatusBarChart';
 import CategoryPieChart from '../components/charts/CategoryPieChart';
 import { fetchReporterKPIs, fetchManagementKPIs } from '../services/api';
 
+const currentYear = new Date().getFullYear();
+
 export default function ReporterDashboard({ filters, preselectedReporter }) {
   const [reporter, setReporter] = useState('');
   const [reporterId, setReporterId] = useState(null);
@@ -71,9 +73,9 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
 
   const formatTime = (minutes) => {
     if (!minutes) return '0';
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return `${hours}h ${mins}m`;
+    const days = Math.floor(minutes / (60 * 24));
+    const hours = Math.round((minutes % (60 * 24)) / 60);
+    return `${days}d ${hours}h`;
   };
 
   const getCategoryPieData = () => {
@@ -172,14 +174,14 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
     <div>
       <h2 style={titleStyle}>Reporter Dashboard</h2>
 
-      {!overallLoading && overallKPIs && (
+{!overallLoading && overallKPIs && (
         <div style={highlightGridStyle}>
-          <div style={highlightCardStyle}>
+          <div style={highlightCardStyle} title="Alle Tickets im Status 'Bearbeitung' (alle Jahre)">
             <div style={highlightLabelStyle}>Aktuell in Bearbeitung</div>
             <div style={highlightValueStyle}>{overallKPIs.ticketsInProgress}</div>
           </div>
-          <div style={highlightCardStyle}>
-            <div style={highlightLabelStyle}>Dieses Jahr geschlossen</div>
+          <div style={highlightCardStyle} title={`Tickets, die ${currentYear} geschlossen wurden (unabhängig vom Erstellungsdatum)`}>
+            <div style={highlightLabelStyle}>Geschlossen {currentYear}</div>
             <div style={highlightValueStyle}>{overallKPIs.ticketsClosedThisYear}</div>
           </div>
         </div>
@@ -212,27 +214,31 @@ export default function ReporterDashboard({ filters, preselectedReporter }) {
 
       {reporter && kpiData && !loading && (
         <>
-          <div style={sectionTitleStyle}>Meine Tickets</div>
+<div style={sectionTitleStyle}>Meine Tickets</div>
           <div className="kpi-grid">
             <KPICard
               title="Neue Tickets"
               value={kpiData.ticketsNew}
               icon={AlertCircle}
+              tooltip="Neue Tickets, die noch nicht bearbeitet wurden (alle Jahre)"
             />
             <KPICard
               title="Aktuell in Bearbeitung"
               value={kpiData.ticketsInProgress}
               icon={Ticket}
+              tooltip="Alle Tickets im Status 'Bearbeitung' (alle Jahre)"
             />
             <KPICard
               title="Gesamt"
               value={kpiData.ticketsTotal}
               icon={FileCheck}
+              tooltip="Gesamtzahl aller Tickets (alle Jahre)"
             />
             <KPICard
-              title="Ø Bearbeitungszeit"
+              title={`Ø Bearbeitungszeit ${currentYear}`}
               value={formatTime(kpiData.avgProcessingTimeMinutes)}
               icon={Clock}
+              tooltip={`Durchschnittliche Zeit von Erstellung bis Schließung für Tickets, die ${currentYear} erstellt UND geschlossen wurden`}
             />
           </div>
 

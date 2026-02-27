@@ -1,16 +1,15 @@
 {
   "database": {
-    "type": "sqlite",
+    "kpiType": "oracle",
     "sqlite": {
       "kpiDatabase": "./cedm_all_data-new.db",
       "configDatabase": "./config.db"
     },
     "oracle": {
-      "user": "",
-      "password": "",
-      "connectString": "",
-      "kpiSchema": "CEDM",
-      "configSchema": "KPI_CONFIG"
+      "user": "CEDM_READONLY",
+      "password": "bpIYd11C86mjFu2rvBJE",
+      "connectString": "172.27.7.183:1521/devu",
+      "kpiSchema": "CEDM"
     }
   },
   "server": {

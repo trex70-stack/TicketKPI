@@ -7,8 +7,7 @@
 4. [Oracle Instant Client installieren](#oracle-instant-client-installieren)
 5. [Anwendung konfigurieren](#anwendung-konfigurieren)
 6. [Anwendung starten](#anwendung-starten)
-7. [Zugriff von anderen Rechnern](#zugriff-von-anderen-rechnern)
-8. [Produktionsbetrieb](#produktionsbetrieb)
+7. [Produktionsbetrieb](#produktionsbetrieb)
 
 ---
 
@@ -257,63 +256,6 @@ Der gebaute Client liegt dann in `client/dist/` und kann von einem Webserver aus
 
 ---
 
-## Zugriff von anderen Rechnern
-
-Damit das Dashboard von anderen Rechnern im Netzwerk erreichbar ist, sind folgende Schritte notwendig:
-
-### 1. Firewall konfigurieren
-
-**Windows:**
-```powershell
-# Port 3001 für API öffnen
-netsh advfirewall firewall add rule name="KPI Dashboard API" dir=in action=allow protocol=tcp localport=3001
-
-# Port 5173 für Entwicklungsserver öffnen (optional)
-netsh advfirewall firewall add rule name="KPI Dashboard Client" dir=in action=allow protocol=tcp localport=5173
-```
-
-**Linux (ufw):**
-```bash
-# Port 3001 für API öffnen
-sudo ufw allow 3001/tcp
-
-# Port 5173 für Entwicklungsserver öffnen (optional)
-sudo ufw allow 5173/tcp
-```
-
-**Linux (firewalld):**
-```bash
-sudo firewall-cmd --permanent --add-port=3001/tcp
-sudo firewall-cmd --permanent --add-port=5173/tcp
-sudo firewall-cmd --reload
-```
-
-### 2. Client-Konfiguration
-
-Der Client ist bereits so konfiguriert, dass er automatisch die IP-Adresse des Servers verwendet. Die API-URL wird dynamisch ermittelt:
-
-```javascript
-// In api.js und AuthContext.jsx
-const host = window.location.hostname;
-const API_BASE = `http://${host}:3001/api`;
-```
-
-### 3. Zugriff testen
-
-Nach dem Start der Anwendung kann das Dashboard von anderen Rechnern aufgerufen werden:
-
-```
-http://<SERVER-IP>:5173
-```
-
-Beispiel: `http://192.168.1.100:5173`
-
-### 4. Produktionsbetrieb mit Reverse Proxy
-
-Für den produktiven Einsatz wird ein Reverse Proxy (nginx, Apache) empfohlen. Siehe dazu den Abschnitt [Produktionsbetrieb](#produktionsbetrieb).
-
----
-
 ## Produktionsbetrieb
 
 ### Option 1: PM2 (empfohlen)
@@ -428,41 +370,6 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Reverse Proxy (Apache)
-
-Apache-Konfiguration `/etc/apache2/sites-available/ticketkpi.conf`:
-
-```apache
-<VirtualHost *:80>
-    ServerName kpi.example.com
-    DocumentRoot /opt/ticketkpi/client/dist
-
-    <Directory /opt/ticketkpi/client/dist>
-        Options Indexes FollowSymLinks
-        AllowOverride All
-        Require all granted
-        
-        RewriteEngine On
-        RewriteBase /
-        RewriteRule ^index\.html$ - [L]
-        RewriteCond %{REQUEST_FILENAME} !-f
-        RewriteCond %{REQUEST_FILENAME} !-d
-        RewriteRule . /index.html [L]
-    </Directory>
-
-    ProxyPreserveHost On
-    ProxyPass /api http://localhost:3001/api
-    ProxyPassReverse /api http://localhost:3001/api
-</VirtualHost>
-```
-
-Aktivieren:
-```bash
-sudo a2enmod proxy proxy_http rewrite
-sudo a2ensite ticketkpi
-sudo systemctl reload apache2
-```
-
 ---
 
 ## Firewall-Konfiguration
@@ -526,30 +433,6 @@ netsh advfirewall firewall add rule name="KPI Dashboard" dir=in action=allow pro
 1. Server läuft? `http://SERVER:3001/api/health`
 2. Browser-Konsole prüfen (F12)
 3. Netzwerk-Requests prüfen (F12 → Network)
-
-### Zugriff von anderen Rechnern nicht möglich
-
-1. **Firewall:** Port 3001 und 5173 offen?
-   ```bash
-   # Linux - Status prüfen
-   sudo ufw status
-   
-   # Windows - Regeln auflisten
-   netsh advfirewall firewall show rule name="KPI Dashboard API"
-   ```
-
-2. **Server-Bindung:** Server muss an `0.0.0.0` binden (bereits konfiguriert)
-
-3. **Client-URL:** Wird automatisch ermittelt - sollte funktionieren
-
-4. **Netzwerk:** Server und Client im selben Netzwerk?
-   ```bash
-   # Server-IP ermitteln
-   # Linux
-   ip addr show
-   # Windows
-   ipconfig
-   ```
 
 ---
 
