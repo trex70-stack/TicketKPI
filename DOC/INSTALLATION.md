@@ -6,8 +6,9 @@
 3. [Installation unter Linux](#installation-unter-linux)
 4. [Oracle Instant Client installieren](#oracle-instant-client-installieren)
 5. [Anwendung konfigurieren](#anwendung-konfigurieren)
-6. [Anwendung starten](#anwendung-starten)
-7. [Produktionsbetrieb](#produktionsbetrieb)
+6. [Azure AD Authentifizierung konfigurieren](#azure-ad-authentifizierung-konfigurieren)
+7. [Anwendung starten](#anwendung-starten)
+8. [Produktionsbetrieb](#produktionsbetrieb)
 
 ---
 
@@ -226,6 +227,50 @@ Datei `server/database.config.json` erstellen:
 ### SQLite für Benutzerverwaltung
 
 Die Benutzerverwaltung bleibt in SQLite. Die Datei `config.db` wird automatisch erstellt.
+
+---
+
+## Azure AD Authentifizierung konfigurieren
+
+### Azure Portal einrichten
+
+1. Im [Azure Portal](https://portal.azure.com) anmelden
+2. Zu **Azure Active Directory** → **App registrations** navigieren
+3. **New registration** klicken
+4. Name eingeben: `TicketKPI Dashboard`
+5. Supported account types wählen (z.B. "Accounts in this organizational directory only")
+6. Redirect URI hinzufügen:
+   - Platform: **Single-page application**
+   - URI: `http://IHRE-DOMAIN/auth/callback` (für Produktion)
+   - Für Entwicklung: `http://localhost:5173/auth/callback`
+7. **Register** klicken
+
+### Werte kopieren
+
+Nach der Registrierung:
+- **Application (client) ID** kopieren
+- **Directory (tenant) ID** kopieren
+
+### Umgebungsvariablen setzen
+
+Datei `client/.env` erstellen:
+
+```env
+VITE_AZURE_CLIENT_ID=ihre-client-id
+VITE_AZURE_TENANT_ID=ihre-tenant-id
+VITE_AZURE_REDIRECT_URI=http://IHRE-DOMAIN/auth/callback
+```
+
+### Token-Claims konfigurieren (optional)
+
+Falls E-Mail nicht im Token enthalten ist:
+1. App Registration → **Token configuration**
+2. **Add optional claim**
+3. `email` und `preferred_username` hinzufügen
+
+### Entwickler-Modus
+
+Ohne Azure AD Konfiguration zeigt die Login-Seite automatisch den **Entwickler-Modus** an. Damit kann man sich mit einer beliebigen E-Mail-Adresse anmelden (nur für Testzwecke).
 
 ---
 
