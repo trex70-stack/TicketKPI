@@ -29,7 +29,7 @@ export default function CategoryPieChart({ data, title, dataKey = 'count', nameK
               cy="50%"
               outerRadius={100}
               innerRadius={40}
-              label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+              label={({ value }) => value}
               labelLine={true}
               paddingAngle={2}
             >

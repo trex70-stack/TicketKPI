@@ -3,10 +3,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 export default function TimeComparisonChart({ myTime, colleaguesTime, title }) {
   const formatTime = (minutes) => {
     if (!minutes) return '0';
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    if (hours === 0) return `${mins}m`;
-    return `${hours}h ${mins}m`;
+    const days = Math.floor(minutes / (60 * 24));
+    const hours = Math.round((minutes % (60 * 24)) / 60);
+    return `${days}d ${hours}h`;
   };
 
   const data = [

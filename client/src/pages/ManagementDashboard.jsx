@@ -6,6 +6,8 @@ import StatusBarChart from '../components/charts/StatusBarChart';
 import CategoryPieChart from '../components/charts/CategoryPieChart';
 import { fetchManagementKPIs } from '../services/api';
 
+const currentYear = new Date().getFullYear();
+
 export default function ManagementDashboard({ filters }) {
   const [category, setCategory] = useState('all');
   const [priority, setPriority] = useState('all');
@@ -29,9 +31,9 @@ export default function ManagementDashboard({ filters }) {
 
   const formatTime = (minutes) => {
     if (!minutes) return '0';
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return `${hours}h ${mins}m`;
+    const days = Math.floor(minutes / (60 * 24));
+    const hours = Math.round((minutes % (60 * 24)) / 60);
+    return `${days}d ${hours}h`;
   };
 
   const getCategoryPieData = () => {
@@ -86,38 +88,42 @@ export default function ManagementDashboard({ filters }) {
 
       {kpiData && !loading && (
         <>
-          <div className="kpi-grid">
+<div className="kpi-grid">
             <KPICard
               title="Neu ohne Agent"
               value={kpiData.ticketsNewWithoutAgent}
               icon={AlertCircle}
+              tooltip="Neue Tickets ohne zugewiesenen Agent (alle Jahre)"
             />
             <KPICard
               title="Aktuell in Bearbeitung"
               value={kpiData.ticketsInProgress}
               icon={Ticket}
+              tooltip="Alle Tickets im Status 'Bearbeitung' (alle Jahre)"
             />
             <KPICard
-              title="Dieses Jahr geschlossen"
+              title={`Geschlossen ${currentYear}`}
               value={kpiData.ticketsClosedThisYear}
               icon={FileCheck}
+              tooltip={`Tickets, die ${currentYear} geschlossen wurden (unabhängig vom Erstellungsdatum)`}
             />
             <KPICard
-              title="Ø Bearbeitungszeit"
+              title={`Ø Bearbeitungszeit ${currentYear}`}
               value={formatTime(kpiData.avgProcessingTimeMinutes)}
               icon={Clock}
+              tooltip={`Durchschnittliche Zeit von Erstellung bis Schließung für Tickets, die ${currentYear} erstellt UND geschlossen wurden`}
             />
           </div>
 
-          <div className="chart-grid">
+<div className="chart-grid">
             <StatusBarChart 
               data={kpiData.byCategory} 
-              title="Tickets nach Kategorie"
+              title={`Tickets ${currentYear} nach Kategorie`}
               groupBy="category"
             />
             <StatusBarChart 
               data={kpiData.byPriority} 
-              title="Tickets nach Priorität"
+              title={`Tickets ${currentYear} nach Priorität`}
               groupBy="priority"
             />
           </div>
@@ -129,7 +135,7 @@ export default function ManagementDashboard({ filters }) {
             />
             <CategoryPieChart 
               data={getCategoryPieData()} 
-              title="Verteilung nach Kategorie"
+              title={`Tickets ${currentYear} nach Kategorie`}
             />
           </div>
         </>

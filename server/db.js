@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 let config = null;
 let kpiConnection = null;
 let configConnection = null;
-let dbType = 'sqlite';
+let kpiType = 'sqlite';
 
 function loadConfig() {
   const configPath = join(__dirname, 'database.config.json');
@@ -18,17 +18,16 @@ function loadConfig() {
   } else {
     config = {
       database: {
-        type: 'sqlite',
+        kpiType: 'sqlite',
         sqlite: {
-          kpiDatabase: './cedm_all_data-new.db',
+          kpiDatabase: './cedm_all_data.db',
           configDatabase: './config.db'
         },
         oracle: {
           user: '',
           password: '',
           connectString: '',
-          kpiSchema: 'CEDM',
-          configSchema: 'KPI_CONFIG'
+          kpiSchema: 'CEDM'
         }
       },
       server: { port: 3001 }
@@ -43,7 +42,7 @@ export function getConfig() {
 }
 
 export function getDbType() {
-  return dbType;
+  return kpiType;
 }
 
 // SQLite Implementation
@@ -105,17 +104,22 @@ class SQLiteConnection {
 
 // Oracle Implementation
 class OracleConnection {
-  constructor(config, isConfig = false) {
+  constructor(config) {
     this.config = config;
-    this.isConfig = isConfig;
     this.connection = null;
     this.oracledb = null;
-    this.schema = isConfig ? config.configSchema : config.kpiSchema;
+    this.schema = config.kpiSchema;
   }
 
   async init() {
     try {
-      this.oracledb = await import('oracledb');
+      const oracledbModule = await import('oracledb');
+      this.oracledb = oracledbModule.default || oracledbModule;
+      
+      if (!this.oracledb || typeof this.oracledb.getConnection !== 'function') {
+        throw new Error('oracledb module not properly loaded. Make sure Oracle Instant Client is installed and in PATH.');
+      }
+      
       this.connection = await this.oracledb.getConnection({
         user: this.config.user,
         password: this.config.password,
@@ -130,15 +134,23 @@ class OracleConnection {
   }
 
   addSchemaPrefix(sql) {
-    const tables = ['cs_ticket_ticket', 'cs_ticket_prot', 'angestellter', 'cs_ticket_type', 'cs_ticket_priority', 'users'];
+    const tables = ['cs_ticket_ticket', 'cs_ticket_prot', 'angestellter', 'cs_ticket_type', 'cs_ticket_priority'];
     let result = sql;
     tables.forEach(table => {
       result = result.replace(new RegExp(`\\bFROM\\s+${table}\\b`, 'gi'), `FROM ${this.schema}.${table}`);
       result = result.replace(new RegExp(`\\bJOIN\\s+${table}\\b`, 'gi'), `JOIN ${this.schema}.${table}`);
-      result = result.replace(new RegExp(`\\bINTO\\s+${table}\\b`, 'gi'), `INTO ${this.schema}.${table}`);
-      result = result.replace(new RegExp(`\\bUPDATE\\s+${table}\\b`, 'gi'), `UPDATE ${this.schema}.${table}`);
     });
     return result;
+  }
+
+  convertParams(sql, params) {
+    let index = 1;
+    const convertedSql = sql.replace(/\?/g, () => `:${index++}`);
+    const bindParams = {};
+    params.forEach((val, i) => {
+      bindParams[i + 1] = val;
+    });
+    return { sql: convertedSql, bindParams };
   }
 
   async queryOne(sql, params = []) {
@@ -148,21 +160,24 @@ class OracleConnection {
 
   async queryAll(sql, params = []) {
     try {
-      const fullSql = this.addSchemaPrefix(sql);
-      const result = await this.connection.execute(fullSql, params, {
+      let fullSql = this.addSchemaPrefix(sql);
+      const { sql: convertedSql, bindParams } = this.convertParams(fullSql, params);
+      const result = await this.connection.execute(convertedSql, bindParams, {
         outFormat: this.oracledb.OUT_FORMAT_OBJECT
       });
       return result.rows || [];
     } catch (error) {
       console.error('Oracle queryAll error:', error.message);
+      console.error('SQL:', sql);
       throw error;
     }
   }
 
   async run(sql, params = []) {
     try {
-      const fullSql = this.addSchemaPrefix(sql);
-      await this.connection.execute(fullSql, params, { autoCommit: true });
+      let fullSql = this.addSchemaPrefix(sql);
+      const { sql: convertedSql, bindParams } = this.convertParams(fullSql, params);
+      await this.connection.execute(convertedSql, bindParams, { autoCommit: true });
     } catch (error) {
       console.error('Oracle run error:', error.message);
       throw error;
@@ -181,36 +196,34 @@ class OracleConnection {
 // Initialize database connections
 export async function initDB() {
   loadConfig();
-  dbType = config.database.type.toLowerCase();
-  console.log(`Initializing ${dbType.toUpperCase()} database connection...`);
-
-  if (dbType === 'sqlite') {
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
-    
+  kpiType = config.database.kpiType.toLowerCase();
+  
+  const initSqlJs = (await import('sql.js')).default;
+  const SQL = await initSqlJs();
+  
+  // Config is always SQLite
+  const configDbPath = join(__dirname, '..', config.database.sqlite.configDatabase);
+  configConnection = new SQLiteConnection(configDbPath, true);
+  await configConnection.init(SQL);
+  initConfigTablesSQLite();
+  
+  // KPI can be SQLite or Oracle
+  if (kpiType === 'sqlite') {
+    console.log('Initializing SQLITE database connection...');
     const kpiDbPath = join(__dirname, '..', config.database.sqlite.kpiDatabase);
-    const configDbPath = join(__dirname, '..', config.database.sqlite.configDatabase);
-    
     kpiConnection = new SQLiteConnection(kpiDbPath, false);
     await kpiConnection.init(SQL);
     
-    configConnection = new SQLiteConnection(configDbPath, true);
-    await configConnection.init(SQL);
-    
-    initConfigTablesSQLite();
-    
-  } else if (dbType === 'oracle') {
+  } else if (kpiType === 'oracle') {
+    console.log('Initializing ORACLE database connection...');
     const oracleConfig = config.database.oracle;
     
     if (!oracleConfig.user || !oracleConfig.password || !oracleConfig.connectString) {
       throw new Error('Oracle connection parameters not configured');
     }
     
-    kpiConnection = new OracleConnection(oracleConfig, false);
+    kpiConnection = new OracleConnection(oracleConfig);
     await kpiConnection.init();
-    
-    configConnection = new OracleConnection(oracleConfig, true);
-    await configConnection.init();
   }
 
   return { kpiConnection, configConnection };

@@ -7,6 +7,8 @@ import ComparisonBarChart from '../components/charts/ComparisonBarChart';
 import TimeComparisonChart from '../components/charts/TimeComparisonChart';
 import { fetchAgentKPIs } from '../services/api';
 
+const currentYear = new Date().getFullYear();
+
 export default function AgentDashboard({ filters, preselectedAgent }) {
   const [agent, setAgent] = useState('');
   const [agentId, setAgentId] = useState(null);
@@ -56,9 +58,9 @@ export default function AgentDashboard({ filters, preselectedAgent }) {
 
   const formatTime = (minutes) => {
     if (!minutes) return '0';
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return `${hours}h ${mins}m`;
+    const days = Math.floor(minutes / (60 * 24));
+    const hours = Math.round((minutes % (60 * 24)) / 60);
+    return `${days}d ${hours}h`;
   };
 
   const titleStyle = {
@@ -138,30 +140,34 @@ export default function AgentDashboard({ filters, preselectedAgent }) {
 
       {agent && kpiData && !loading && (
         <>
-          <div className="kpi-grid">
+<div className="kpi-grid">
             <KPICard
               title="Neu ohne Agent"
               value={kpiData.ticketsNewNoAgent}
               icon={Ticket}
+              tooltip="Neue Tickets ohne zugewiesenen Agent (alle Jahre)"
             />
             <KPICard
               title="Aktuell in Bearbeitung"
               value={kpiData.ticketsInProgress}
               icon={Users}
+              tooltip="Alle Tickets im Status 'Bearbeitung' (alle Jahre)"
             />
             <KPICard
-              title="Dieses Jahr bearbeitet"
+              title={`Bearbeitet ${currentYear}`}
               value={kpiData.ticketsClosedThisYear}
               icon={FileCheck}
+              tooltip={`Tickets, die ${currentYear} geschlossen wurden (unabhängig vom Erstellungsdatum)`}
             />
             <KPICard
-              title="Ø Bearbeitungszeit"
+              title={`Ø Bearbeitungszeit ${currentYear}`}
               value={formatTime(kpiData.avgProcessingTimeMinutes)}
               icon={Clock}
+              tooltip={`Durchschnittliche Zeit von Erstellung bis Schließung für Tickets, die ${currentYear} erstellt UND geschlossen wurden`}
             />
           </div>
 
-          <div className="chart-grid">
+<div className="chart-grid">
             <ComparisonBarChart
               data={[
                 { 
@@ -170,7 +176,7 @@ export default function AgentDashboard({ filters, preselectedAgent }) {
                   kollegen: kpiData.avgColleaguesInProgress 
                 },
                 { 
-                  name: 'Dieses Jahr bearbeitet', 
+                  name: `Bearbeitet ${currentYear}`, 
                   ich: kpiData.ticketsClosedThisYear, 
                   kollegen: kpiData.avgColleaguesClosedThisYear 
                 },
@@ -179,7 +185,7 @@ export default function AgentDashboard({ filters, preselectedAgent }) {
             />
             <StatusBarChart 
               data={kpiData.byCategory} 
-              title="Meine Tickets nach Kategorie"
+              title={`Meine Tickets ${currentYear} nach Kategorie`}
               groupBy="category"
             />
           </div>
@@ -187,13 +193,13 @@ export default function AgentDashboard({ filters, preselectedAgent }) {
           <div className="chart-grid">
             <StatusBarChart 
               data={kpiData.byPriority} 
-              title="Meine Tickets nach Priorität"
+              title={`Meine Tickets ${currentYear} nach Priorität`}
               groupBy="priority"
             />
             <TimeComparisonChart
               myTime={kpiData.avgProcessingTimeMinutes}
               colleaguesTime={kpiData.avgColleaguesProcessingTimeMinutes}
-              title="Ø Bearbeitungszeit: Ich vs. Kollegen"
+              title={`Ø Bearbeitungszeit ${currentYear}: Ich vs. Kollegen`}
             />
           </div>
         </>
