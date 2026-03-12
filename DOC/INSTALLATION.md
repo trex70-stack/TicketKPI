@@ -9,8 +9,10 @@
 6. [Azure AD Authentifizierung konfigurieren](#azure-ad-authentifizierung-konfigurieren)
 7. [SMTP E-Mail-Service konfigurieren](#smtp-e-mail-service-konfigurieren)
 8. [Benutzer einladen](#benutzer-einladen)
-9. [Anwendung starten](#anwendung-starten)
-10. [Produktionsbetrieb](#produktionsbetrieb)
+9. [Datenbank-Verschlüsselung](#datenbank-verschlüsselung)
+10. [Backup und Wiederherstellung](#backup-und-wiederherstellung)
+11. [Anwendung starten](#anwendung-starten)
+12. [Produktionsbetrieb](#produktionsbetrieb)
 
 ---
 
@@ -370,6 +372,123 @@ Im Tab **"Offene Einladungen"** können Sie:
 ### Einladungsgültigkeit
 
 Einladungslinks sind **7 Tage** gültig.
+
+---
+
+## Datenbank-Verschlüsselung
+
+Die Konfigurationsdatenbank (`config.db`) enthält sensible Daten wie Passwort-Hashes und Einladungs-Tokens. Sie wird automatisch mit **SQLCipher** (AES-256) verschlüsselt.
+
+### Verschlüsselung einrichten
+
+#### 1. Schlüssel generieren
+
+Generieren Sie einen sicheren Schlüssel (mindestens 32 Zeichen):
+
+**Option A: Automatisch generieren (Linux/Mac/Git Bash)**
+```bash
+openssl rand -base64 32
+```
+
+**Option B: Manuell erstellen**
+- Mindestens 32 Zeichen
+- Buchstaben, Zahlen, Sonderzeichen mischen
+- Beispiel: `MySecureKey123!@#AbcDefGhiJklMnoPqr`
+
+#### 2. Umgebungsvariable setzen
+
+**Windows (Entwicklung - temporär):**
+```cmd
+set CONFIG_DB_KEY=IhrGenerierterSchlüsselMindestens32Zeichen
+```
+
+**Windows (Produktion - permanent):**
+```powershell
+# Als Administrator ausführen
+[Environment]::SetEnvironmentVariable("CONFIG_DB_KEY", "IhrSchlüssel", "Machine")
+```
+
+**Linux (Entwicklung):**
+```bash
+export CONFIG_DB_KEY=IhrGenerierterSchlüsselMindestens32Zeichen
+```
+
+**Linux (Produktion - systemd):**
+```ini
+# /etc/systemd/system/ticketkpi.service
+[Service]
+Environment="CONFIG_DB_KEY=IhrGenerierterSchlüsselMindestens32Zeichen"
+```
+
+#### 3. Anwendung starten
+
+Beim ersten Start mit gesetztem Schlüssel:
+- Neue `config.db` wird verschlüsselt erstellt
+- Bestehende unverschlüsselte DB wird automatisch migriert
+
+### Migration bestehender Datenbank
+
+Wenn bereits eine `config.db` existiert, wird sie automatisch migriert:
+
+1. Backup der unverschlüsselten DB wird erstellt
+2. Daten werden exportiert
+3. Neue verschlüsselte DB wird erstellt
+4. Daten werden importiert
+5. Alte DB wird gelöscht
+
+**Wichtig:** Der Schlüssel kann nachträglich nicht geändert werden ohne Datenverlust!
+
+### Schlüssel sicher aufbewahren
+
+- Schlüssel **niemals** in Git committen
+- Schlüssel in einem Passwort-Manager speichern
+- Bei Server-Migration: Schlüssel auf neuen Server übertragen
+
+### Fehlerbehebung
+
+| Fehler | Ursache | Lösung |
+|--------|---------|--------|
+| `CONFIG_DB_KEY ist nicht gesetzt` | Umgebungsvariable fehlt | Schlüssel setzen |
+| `CONFIG_DB_KEY zu kurz` | Weniger als 32 Zeichen | Längeren Schlüssel verwenden |
+| `Datenbank-Schlüssel falsch` | Falscher Schlüssel | Korrekten Schlüssel setzen |
+| `DB nicht verschlüsselt` | Alte unverschlüsselte DB | Migration wird automatisch ausgeführt |
+
+---
+
+## Backup und Wiederherstellung
+
+### Automatische Backups
+
+Beim jedem Server-Start wird automatisch ein Backup erstellt:
+
+- **Speicherort:** `server/backups/config/`
+- **Dateiname:** `config_YYYY-MM-DD_HH-MM.db`
+- **Aufbewahrung:** Letzte 7 Backups
+- **Verschlüsselung:** Backups sind verschlüsselt
+
+### Backup manuell erstellen
+
+```bash
+# Vor dem Server-Start: DB-Datei kopieren
+cp config.db backups/config/config_manuell_$(date +%Y%m%d).db
+```
+
+### Backup wiederherstellen
+
+1. Server stoppen
+2. Aktuelle `config.db` sichern (falls vorhanden)
+3. Backup-Datei nach `config.db` kopieren:
+   ```bash
+   cp server/backups/config/config_2026-03-12_08-00.db config.db
+   ```
+4. Server starten (mit demselben Schlüssel wie beim Backup!)
+
+### Wichtige Hinweise
+
+- Backups sind mit demselben Schlüssel verschlüsselt wie die Original-DB
+- Ohne Schlüssel sind Backups nicht lesbar
+- Schlüssel und Backups getrennt aufbewahren
+- Regelmäßig Backup-Wiederherstellung testen
 
 ---
 

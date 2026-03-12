@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getConfigDB, saveConfigDB } from '../db.js';
+import { getConfigDB } from '../db.js';
 import { hashPassword, verifyPassword, validatePassword, generateToken } from '../passwordUtils.js';
 import { sendInvitationEmail, sendPasswordResetEmail, isEmailEnabled } from '../emailService.js';
 
@@ -35,7 +35,6 @@ router.post('/login', async (req, res) => {
           INSERT INTO users (azure_id, email, name, role, password_set)
           VALUES (?, ?, ?, 'standard', 1)
         `, [azureId, email, userName]);
-        saveConfigDB();
         user = await db.queryOne('SELECT * FROM users WHERE azure_id = ?', [azureId]);
       }
       
@@ -154,7 +153,6 @@ router.post('/set-password', async (req, res) => {
       SET password_hash = ?, password_set = 1, invitation_token = NULL, invitation_expires = NULL, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, [passwordHash, user.id]);
-    saveConfigDB();
     
     res.json({ 
       message: 'Passwort erfolgreich gesetzt',
@@ -227,7 +225,6 @@ router.post('/request-password-reset', async (req, res) => {
       SET reset_token = ?, reset_token_expires = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, [resetToken, expires, user.id]);
-    saveConfigDB();
     
     await sendPasswordResetEmail(email, resetToken);
     
@@ -274,7 +271,6 @@ router.post('/reset-password', async (req, res) => {
       SET password_hash = ?, password_set = 1, reset_token = NULL, reset_token_expires = NULL, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, [passwordHash, user.id]);
-    saveConfigDB();
     
     res.json({ message: 'Passwort erfolgreich zurückgesetzt' });
   } catch (error) {

@@ -1,6 +1,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import SQLite from '@journeyapps/sqlcipher';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -9,6 +10,8 @@ let config = null;
 let kpiConnection = null;
 let configConnection = null;
 let kpiType = 'sqlite';
+
+const MIN_KEY_LENGTH = 32;
 
 function loadConfig() {
   const configPath = join(__dirname, 'database.config.json');
@@ -45,7 +48,7 @@ export function getDbType() {
   return kpiType;
 }
 
-// SQLite Implementation
+// SQLite Implementation for KPI database
 class SQLiteConnection {
   constructor(dbPath, isConfig = false) {
     this.dbPath = dbPath;
@@ -99,6 +102,71 @@ class SQLiteConnection {
 
   close() {
     if (this.db) this.db.close();
+  }
+}
+
+// SQLCipher Implementation for Config database
+class SQLCipherConnection {
+  constructor(dbPath, key) {
+    this.dbPath = dbPath;
+    this.key = key;
+    this.db = null;
+  }
+
+  async init() {
+    return new Promise((resolve, reject) => {
+      this.db = new SQLite.Database(this.dbPath, (err) => {
+        if (err) return reject(err);
+        
+        this.db.run(`PRAGMA key = '${this.key}'`, (err) => {
+          if (err) {
+            this.db.close();
+            return reject(err);
+          }
+          
+          this.db.get("SELECT count(*) as cnt FROM sqlite_master", (err, row) => {
+            if (err) {
+              this.db.close();
+              return reject(new Error('Datenbank-Schlüssel falsch oder DB nicht verschlüsselt'));
+            }
+            resolve(this);
+          });
+        });
+      });
+    });
+  }
+
+  queryOne(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      this.db.get(sql, params, (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      });
+    });
+  }
+
+  queryAll(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      this.db.all(sql, params, (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows || []);
+      });
+    });
+  }
+
+  run(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      this.db.run(sql, params, function(err) {
+        if (err) return reject(err);
+        resolve({ changes: this.changes, lastID: this.lastID });
+      });
+    });
+  }
+
+  close() {
+    if (this.db) {
+      this.db.close();
+    }
   }
 }
 
@@ -198,18 +266,53 @@ export async function initDB() {
   loadConfig();
   kpiType = config.database.kpiType.toLowerCase();
   
-  const initSqlJs = (await import('sql.js')).default;
-  const SQL = await initSqlJs();
+  const dbKey = process.env.CONFIG_DB_KEY;
   
-  // Config is always SQLite
+  if (!dbKey) {
+    console.error('\n========================================');
+    console.error('CONFIG_DB_KEY ist nicht gesetzt!');
+    console.error('========================================');
+    console.error('\nSetzen Sie die Umgebungsvariable:');
+    console.error('  Windows: set CONFIG_DB_KEY=ihr-schluessel-min-32-zeichen');
+    console.error('  Linux:   export CONFIG_DB_KEY=ihr-schluessel-min-32-zeichen');
+    console.error('\nDer Schlüssel muss mindestens 32 Zeichen haben.\n');
+    throw new Error('CONFIG_DB_KEY nicht gesetzt');
+  }
+  
+  if (dbKey.length < MIN_KEY_LENGTH) {
+    console.error(`\nCONFIG_DB_KEY muss mindestens ${MIN_KEY_LENGTH} Zeichen haben!`);
+    console.error(`Aktuell: ${dbKey.length} Zeichen\n`);
+    throw new Error('CONFIG_DB_KEY zu kurz');
+  }
+  
   const configDbPath = join(__dirname, '..', config.database.sqlite.configDatabase);
-  configConnection = new SQLiteConnection(configDbPath, true);
-  await configConnection.init(SQL);
-  initConfigTablesSQLite();
+  configConnection = new SQLCipherConnection(configDbPath, dbKey);
+  
+  try {
+    await configConnection.init();
+    console.log('Config-Datenbank (verschlüsselt) initialisiert');
+    await initConfigTablesSQLCipher();
+  } catch (error) {
+    if (!existsSync(configDbPath)) {
+      console.log('Erstelle neue verschlüsselte Config-Datenbank...');
+      await configConnection.init();
+      await initConfigTablesSQLCipher();
+    } else {
+      console.error('Fehler beim Öffnen der Config-Datenbank:', error.message);
+      console.error('\nMögliche Ursachen:');
+      console.error('  1. Falscher CONFIG_DB_KEY');
+      console.error('  2. Datenbank ist noch nicht verschlüsselt (Migration nötig)');
+      console.error('\nFühren Sie ggf. aus: node server/migrate-config.js');
+      throw error;
+    }
+  }
   
   // KPI can be SQLite or Oracle
   if (kpiType === 'sqlite') {
-    console.log('Initializing SQLITE database connection...');
+    console.log('Initializing SQLITE KPI database connection...');
+    const initSqlJs = (await import('sql.js')).default;
+    const SQL = await initSqlJs();
+    
     const kpiDbPath = join(__dirname, '..', config.database.sqlite.kpiDatabase);
     kpiConnection = new SQLiteConnection(kpiDbPath, false);
     await kpiConnection.init(SQL);
@@ -229,9 +332,8 @@ export async function initDB() {
   return { kpiConnection, configConnection };
 }
 
-function initConfigTablesSQLite() {
-  // Create table if not exists with all columns
-  configConnection.run(`
+async function initConfigTablesSQLCipher() {
+  await configConnection.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       azure_id TEXT UNIQUE,
@@ -250,29 +352,30 @@ function initConfigTablesSQLite() {
     )
   `);
   
-  // Add new columns if they don't exist
-  const addColumnIfNotExists = (columnName, columnDef) => {
+  const columns = [
+    { name: 'kuerzel', def: 'TEXT' },
+    { name: 'password_hash', def: 'TEXT' },
+    { name: 'invitation_token', def: 'TEXT' },
+    { name: 'invitation_expires', def: 'TEXT' },
+    { name: 'password_set', def: 'INTEGER DEFAULT 0' },
+    { name: 'reset_token', def: 'TEXT' },
+    { name: 'reset_token_expires', def: 'TEXT' }
+  ];
+  
+  for (const col of columns) {
     try {
-      configConnection.run(`ALTER TABLE users ADD COLUMN ${columnName} ${columnDef}`);
+      await configConnection.run(`ALTER TABLE users ADD COLUMN ${col.name} ${col.def}`);
     } catch (e) {
       // Column already exists
     }
-  };
+  }
   
-  addColumnIfNotExists('kuerzel', 'TEXT');
-  addColumnIfNotExists('password_hash', 'TEXT');
-  addColumnIfNotExists('invitation_token', 'TEXT');
-  addColumnIfNotExists('invitation_expires', 'TEXT');
-  addColumnIfNotExists('password_set', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('reset_token', 'TEXT');
-  addColumnIfNotExists('reset_token_expires', 'TEXT');
-  
-  const defaultAdmin = configConnection.queryOne("SELECT * FROM users WHERE email = 'tk@contact.de'");
+  const defaultAdmin = await configConnection.queryOne("SELECT * FROM users WHERE email = ?", ['tk@contact.de']);
   if (!defaultAdmin) {
-    configConnection.run(`
+    await configConnection.run(`
       INSERT INTO users (azure_id, email, name, role, password_set)
-      VALUES ('default-admin', 'tk@contact.de', 'König, Thomas', 'admin', 1)
-    `);
+      VALUES (?, ?, ?, ?, ?)
+    `, ['default-admin', 'tk@contact.de', 'König, Thomas', 'admin', 1]);
   }
 }
 
@@ -287,16 +390,17 @@ export function getConfigDB() {
 }
 
 export function saveConfigDB() {
-  if (configConnection) configConnection.save();
+  // SQLCipher auto-saves
 }
 
 export function saveKpiDB() {
-  if (kpiConnection) kpiConnection.save();
+  if (kpiConnection && kpiConnection.save) kpiConnection.save();
 }
 
 export function getDB() { return getKpiDB(); }
 export function saveDB() { return saveKpiDB(); }
 
 export default { 
-  initDB, getKpiDB, getConfigDB, getDB, saveKpiDB, saveConfigDB, saveDB, getConfig, getDbType
+  initDB, getKpiDB, getConfigDB, getDB, saveKpiDB, saveConfigDB, saveDB, getConfig, getDbType,
+  MIN_KEY_LENGTH
 };

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getConfigDB, saveConfigDB, getDbType } from '../db.js';
+import { getConfigDB, getDbType } from '../db.js';
 
 const router = Router();
 
@@ -42,7 +42,6 @@ router.put('/:id/role', async (req, res) => {
     } else {
       await db.run('UPDATE users SET role = ?, updated_at = datetime("now") WHERE id = ?', [role, req.params.id]);
     }
-    saveConfigDB();
     
     const user = await db.queryOne('SELECT id, email, name, kuerzel, role FROM users WHERE id = ?', [req.params.id]);
     res.json(user);
@@ -57,7 +56,6 @@ router.put('/:id/kuerzel', async (req, res) => {
     const db = getConfigDB();
     
     await db.run('UPDATE users SET kuerzel = ?, updated_at = datetime("now") WHERE id = ?', [kuerzel || null, req.params.id]);
-    saveConfigDB();
     
     const user = await db.queryOne('SELECT id, email, name, kuerzel, role FROM users WHERE id = ?', [req.params.id]);
     res.json(user);
@@ -101,7 +99,6 @@ router.put('/:id', async (req, res) => {
     values.push(req.params.id);
     
     await db.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
-    saveConfigDB();
     
     const user = await db.queryOne('SELECT id, email, name, kuerzel, role FROM users WHERE id = ?', [req.params.id]);
     res.json(user);
@@ -123,7 +120,6 @@ router.post('/', async (req, res) => {
       'INSERT INTO users (azure_id, email, name, kuerzel, role) VALUES (?, ?, ?, ?, ?)',
       [azure_id || null, email, name, kuerzel || null, role]
     );
-    saveConfigDB();
     
     const dbType = getDbType();
     let users;
@@ -147,7 +143,6 @@ router.delete('/:id', async (req, res) => {
     }
     
     await db.run('DELETE FROM users WHERE id = ?', [req.params.id]);
-    saveConfigDB();
     
     res.json({ message: 'User deleted successfully' });
   } catch (error) {

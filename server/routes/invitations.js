@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getConfigDB, saveConfigDB, getConfig } from '../db.js';
+import { getConfigDB, getConfig } from '../db.js';
 import { generateToken } from '../passwordUtils.js';
 import { sendInvitationEmail, isEmailEnabled } from '../emailService.js';
 
@@ -28,7 +28,6 @@ router.post('/invite', async (req, res) => {
       INSERT INTO users (email, name, role, kuerzel, invitation_token, invitation_expires, password_set)
       VALUES (?, ?, ?, ?, ?, ?, 0)
     `, [email, name || email.split('@')[0], role || 'standard', kuerzel || null, invitationToken, invitationExpires]);
-    saveConfigDB();
     
     const inviterName = req.headers['x-user-name'] || 'Administrator';
     
@@ -79,7 +78,6 @@ router.post('/resend/:userId', async (req, res) => {
       SET invitation_token = ?, invitation_expires = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, [invitationToken, invitationExpires, user.id]);
-    saveConfigDB();
     
     const inviterName = req.headers['x-user-name'] || 'Administrator';
     
@@ -117,7 +115,6 @@ router.delete('/cancel/:userId', async (req, res) => {
     }
     
     await db.run('DELETE FROM users WHERE id = ?', [userId]);
-    saveConfigDB();
     
     res.json({ message: 'Einladung storniert' });
   } catch (error) {
