@@ -230,32 +230,48 @@ export async function initDB() {
 }
 
 function initConfigTablesSQLite() {
-  // Add kuerzel column if not exists
-  try {
-    configConnection.run(`ALTER TABLE users ADD COLUMN kuerzel TEXT`);
-  } catch (e) {
-    // Column already exists
-  }
-  
-  // Create table if not exists
+  // Create table if not exists with all columns
   configConnection.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       azure_id TEXT UNIQUE,
-      email TEXT,
+      email TEXT UNIQUE,
       name TEXT,
       kuerzel TEXT,
       role TEXT DEFAULT 'standard',
+      password_hash TEXT,
+      invitation_token TEXT,
+      invitation_expires TEXT,
+      password_set INTEGER DEFAULT 0,
+      reset_token TEXT,
+      reset_token_expires TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
   
+  // Add new columns if they don't exist
+  const addColumnIfNotExists = (columnName, columnDef) => {
+    try {
+      configConnection.run(`ALTER TABLE users ADD COLUMN ${columnName} ${columnDef}`);
+    } catch (e) {
+      // Column already exists
+    }
+  };
+  
+  addColumnIfNotExists('kuerzel', 'TEXT');
+  addColumnIfNotExists('password_hash', 'TEXT');
+  addColumnIfNotExists('invitation_token', 'TEXT');
+  addColumnIfNotExists('invitation_expires', 'TEXT');
+  addColumnIfNotExists('password_set', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('reset_token', 'TEXT');
+  addColumnIfNotExists('reset_token_expires', 'TEXT');
+  
   const defaultAdmin = configConnection.queryOne("SELECT * FROM users WHERE email = 'tk@contact.de'");
   if (!defaultAdmin) {
     configConnection.run(`
-      INSERT INTO users (azure_id, email, name, role)
-      VALUES ('default-admin', 'tk@contact.de', 'König, Thomas', 'admin')
+      INSERT INTO users (azure_id, email, name, role, password_set)
+      VALUES ('default-admin', 'tk@contact.de', 'König, Thomas', 'admin', 1)
     `);
   }
 }

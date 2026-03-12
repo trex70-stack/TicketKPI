@@ -1,12 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import { initDB } from './db.js';
+import { initEmailService } from './emailService.js';
 import filtersRouter from './routes/filters.js';
 import reporterRouter from './routes/reporter.js';
 import managementRouter from './routes/management.js';
 import agentRouter from './routes/agent.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
+import invitationsRouter from './routes/invitations.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -20,6 +22,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/invitations', invitationsRouter);
 app.use('/api/filters', filtersRouter);
 app.use('/api/reporter', reporterRouter);
 app.use('/api/management', managementRouter);
@@ -29,6 +32,8 @@ async function startServer() {
   try {
     await initDB();
     console.log('Database initialized successfully');
+    
+    initEmailService();
     
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on http://0.0.0.0:${PORT}`);

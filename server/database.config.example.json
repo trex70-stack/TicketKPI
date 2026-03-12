@@ -12,5 +12,17 @@
       "kpiSchema": "CEDM"
     }
   },
-  "server": { "port": 3001 }
+  "server": {
+    "port": 3001,
+    "baseUrl": "http://your-server:5173"
+  },
+  "email": {
+    "enabled": false,
+    "host": "smtp.example.com",
+    "port": 587,
+    "secure": false,
+    "user": "your-email@example.com",
+    "password": "your-password",
+    "from": "noreply@example.com"
+  }
 }

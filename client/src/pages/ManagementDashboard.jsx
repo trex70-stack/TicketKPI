@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Ticket, Clock, FileCheck, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Ticket, Clock, FileCheck, AlertCircle, Hourglass } from 'lucide-react';
 import KPICard from '../components/KPICard';
 import FilterDropdowns from '../components/FilterDropdowns';
 import StatusBarChart from '../components/charts/StatusBarChart';
 import CategoryPieChart from '../components/charts/CategoryPieChart';
-import { fetchManagementKPIs } from '../services/api';
+import TimeToProcessingChart from '../components/charts/TimeToProcessingChart';
+import { fetchManagementKPIs, fetchTimeToProcessing } from '../services/api';
 
 const currentYear = new Date().getFullYear();
 
@@ -12,10 +13,13 @@ export default function ManagementDashboard({ filters }) {
   const [category, setCategory] = useState('all');
   const [priority, setPriority] = useState('all');
   const [kpiData, setKpiData] = useState(null);
+  const [timeToProcessingData, setTimeToProcessingData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [timeLoading, setTimeLoading] = useState(true);
 
   useEffect(() => {
     loadKPIs();
+    loadTimeToProcessing();
   }, [category, priority]);
 
   const loadKPIs = async () => {
@@ -27,6 +31,17 @@ export default function ManagementDashboard({ filters }) {
       console.error('Error loading KPIs:', error);
     }
     setLoading(false);
+  };
+
+  const loadTimeToProcessing = async () => {
+    setTimeLoading(true);
+    try {
+      const data = await fetchTimeToProcessing();
+      setTimeToProcessingData(data);
+    } catch (error) {
+      console.error('Error loading time to processing:', error);
+    }
+    setTimeLoading(false);
   };
 
   const formatTime = (minutes) => {
@@ -45,11 +60,61 @@ export default function ManagementDashboard({ filters }) {
     return Object.entries(grouped).map(([name, value]) => ({ category: name, count: value }));
   };
 
+  const avgTimeToProcessing = useMemo(() => {
+    if (!timeToProcessingData || timeToProcessingData.length === 0) return null;
+    const totalTime = timeToProcessingData.reduce((sum, d) => sum + (d.avgTime || 0) * (d.count || 1), 0);
+    const totalCount = timeToProcessingData.reduce((sum, d) => sum + (d.count || 1), 0);
+    return totalCount > 0 ? Math.round(totalTime / totalCount) : null;
+  }, [timeToProcessingData]);
+
+  const timeToProcessingTrend = useMemo(() => {
+    if (!timeToProcessingData || timeToProcessingData.length === 0) return null;
+    
+    const months = [...new Set(timeToProcessingData.map(d => d.month))].sort();
+    if (months.length < 2) return null;
+    
+    const lastMonth = months[months.length - 1];
+    const prevMonth = months[months.length - 2];
+    
+    const lastMonthData = timeToProcessingData.filter(d => d.month === lastMonth);
+    const prevMonthData = timeToProcessingData.filter(d => d.month === prevMonth);
+    
+    if (lastMonthData.length === 0 || prevMonthData.length === 0) return null;
+    
+    const lastTotalTime = lastMonthData.reduce((sum, d) => sum + (d.avgTime || 0) * (d.count || 1), 0);
+    const lastTotalCount = lastMonthData.reduce((sum, d) => sum + (d.count || 1), 0);
+    const lastAvg = lastTotalCount > 0 ? lastTotalTime / lastTotalCount : 0;
+    
+    const prevTotalTime = prevMonthData.reduce((sum, d) => sum + (d.avgTime || 0) * (d.count || 1), 0);
+    const prevTotalCount = prevMonthData.reduce((sum, d) => sum + (d.count || 1), 0);
+    const prevAvg = prevTotalCount > 0 ? prevTotalTime / prevTotalCount : 0;
+    
+    if (prevAvg === 0) return null;
+    
+    const change = ((lastAvg - prevAvg) / prevAvg) * 100;
+    
+    return {
+      currentMonth: lastMonth,
+      currentAvg: Math.round(lastAvg),
+      prevMonth: prevMonth,
+      prevAvg: Math.round(prevAvg),
+      changePercent: change
+    };
+  }, [timeToProcessingData]);
+
   const titleStyle = {
     fontSize: '1.25rem',
     fontWeight: 700,
     color: 'var(--text-primary)',
     marginBottom: '1rem'
+  };
+
+  const sectionTitleStyle = {
+    fontSize: '1rem',
+    fontWeight: 600,
+    color: 'var(--text-secondary)',
+    marginBottom: '0.75rem',
+    marginTop: '1.5rem'
   };
 
   const centerStyle = {
@@ -88,7 +153,7 @@ export default function ManagementDashboard({ filters }) {
 
       {kpiData && !loading && (
         <>
-<div className="kpi-grid">
+          <div className="kpi-grid">
             <KPICard
               title="Neu ohne Agent"
               value={kpiData.ticketsNewWithoutAgent}
@@ -115,7 +180,7 @@ export default function ManagementDashboard({ filters }) {
             />
           </div>
 
-<div className="chart-grid">
+          <div className="chart-grid">
             <StatusBarChart 
               data={kpiData.byCategory} 
               title={`Tickets ${currentYear} nach Kategorie`}
@@ -139,6 +204,81 @@ export default function ManagementDashboard({ filters }) {
             />
           </div>
         </>
+      )}
+
+      <div style={sectionTitleStyle}>Zeit bis zur Bearbeitung (letzte 12 Monate)</div>
+      
+      {!timeLoading && avgTimeToProcessing && (
+        <div style={{ 
+          backgroundColor: 'var(--bg-secondary)',
+          borderRadius: '0.75rem',
+          padding: '1rem 1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
+          marginBottom: '1rem'
+        }}>
+          <div style={{ 
+            padding: '0.75rem',
+            backgroundColor: '#fef3c7',
+            borderRadius: '0.5rem'
+          }}>
+            <Hourglass size={24} style={{ color: '#d97706' }} />
+          </div>
+          <div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Ø Zeit bis Bearbeitung (letzte 12 Monate)
+            </p>
+            <p style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {formatTime(avgTimeToProcessing)}
+              {timeToProcessingTrend && (
+                <span style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  color: timeToProcessingTrend.changePercent < 0 ? '#16a34a' : '#dc2626'
+                }}>
+                  <svg 
+                    width={Math.min(16 + Math.abs(timeToProcessingTrend.changePercent) * 0.3, 28)} 
+                    height={14} 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke={timeToProcessingTrend.changePercent < 0 ? '#16a34a' : '#dc2626'}
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ transform: timeToProcessingTrend.changePercent < 0 ? 'rotate(0deg)' : 'rotate(180deg)', marginRight: '0.25rem' }}
+                  >
+                    <path d="M12 5v14M5 12l7-7 7 7" />
+                  </svg>
+                  {timeToProcessingTrend.changePercent > 0 ? '+' : ''}{timeToProcessingTrend.changePercent.toFixed(1)}%
+                </span>
+              )}
+            </p>
+          </div>
+          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Gewichtet nach Ticketanzahl
+            </p>
+            {timeToProcessingTrend && (
+              <p style={{ fontSize: '0.75rem', color: timeToProcessingTrend.changePercent < 0 ? '#16a34a' : '#dc2626', margin: 0 }}>
+                {timeToProcessingTrend.changePercent < 0 ? 'Verbessert' : 'Verschlechtert'} zum Vormonat
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {timeLoading ? (
+        <div style={centerStyle}>
+          <div style={spinnerStyle}></div>
+        </div>
+      ) : (
+        <TimeToProcessingChart 
+          data={timeToProcessingData}
+          title="Ø Zeit von Neuanlage bis 'In Bearbeitung' nach Kategorie"
+        />
       )}
     </div>
   );

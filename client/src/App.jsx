@@ -4,6 +4,7 @@ import { useAuth } from './contexts/AuthContext';
 import { fetchFilters } from './services/api';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
+import SetPassword from './pages/SetPassword';
 import AdminPanel from './pages/AdminPanel';
 import ReporterDashboard from './pages/ReporterDashboard';
 import ManagementDashboard from './pages/ManagementDashboard';
@@ -30,10 +31,11 @@ export default function App() {
     );
   }
 
-  return (
+return (
     <BrowserRouter>
       <Routes>
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/set-password" element={<SetPassword />} />
         <Route path="/login" element={!isAuthenticated() ? <Login /> : <Navigate to="/" />} />
         <Route path="/admin" element={isAuthenticated() ? <AdminPanel /> : <Navigate to="/login" />} />
         <Route path="/*" element={isAuthenticated() ? <DashboardLayout /> : <Navigate to="/login" />} />

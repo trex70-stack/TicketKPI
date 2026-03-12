@@ -40,3 +40,9 @@ export async function fetchAgentKPIs(agentId, category = 'all', priority = 'all'
   if (!response.ok) throw new Error('Failed to fetch agent KPIs');
   return response.json();
 }
+
+export async function fetchTimeToProcessing() {
+  const response = await fetch(`${API_BASE}/management/time-to-processing`);
+  if (!response.ok) throw new Error('Failed to fetch time to processing');
+  return response.json();
+}

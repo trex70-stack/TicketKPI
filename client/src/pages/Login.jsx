@@ -1,11 +1,20 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+
+const getApiBase = () => {
+  const host = window.location.hostname;
+  return `http://${host}:3001/api`;
+};
 
 export default function Login() {
   const { login } = useAuth();
-  const [devMode, setDevMode] = useState(false);
+  const navigate = useNavigate();
+  const [loginMode, setLoginMode] = useState('microsoft');
   const [devEmail, setDevEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleMicrosoftLogin = () => {
     const clientId = import.meta.env.VITE_AZURE_CLIENT_ID;
@@ -13,7 +22,7 @@ export default function Login() {
     const redirectUri = import.meta.env.VITE_AZURE_REDIRECT_URI || `${window.location.origin}/auth/callback`;
 
     if (!clientId || !tenantId) {
-      setError('Azure AD ist nicht konfiguriert. Bitte verwenden Sie den Entwickler-Modus.');
+      setError('Azure AD ist nicht konfiguriert. Bitte verwenden Sie die Passwort-Anmeldung.');
       return;
     }
 
@@ -28,17 +37,35 @@ export default function Login() {
     window.location.href = loginUrl;
   };
 
-  const handleDevLogin = async (e) => {
+  const handlePasswordLogin = async (e) => {
     e.preventDefault();
-    if (!devEmail) {
-      setError('Bitte E-Mail eingeben');
+    if (!devEmail || !password) {
+      setError('Bitte E-Mail und Passwort eingeben');
       return;
     }
 
+    setLoading(true);
+    setError('');
+
     try {
-      await login(`dev-${Date.now()}`, devEmail, devEmail.split('@')[0]);
+      const response = await fetch(`${getApiBase()}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: devEmail, password })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Anmeldung fehlgeschlagen');
+      }
+
+      const userData = await response.json();
+      localStorage.setItem('user', JSON.stringify(userData));
+      navigate('/');
     } catch (err) {
-      setError('Login fehlgeschlagen: ' + err.message);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -72,7 +99,7 @@ export default function Login() {
     fontSize: '0.875rem',
     color: 'var(--text-secondary)',
     textAlign: 'center',
-    marginBottom: '2rem'
+    marginBottom: '1.5rem'
   };
 
   const buttonStyle = {
@@ -88,7 +115,8 @@ export default function Login() {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '0.5rem'
+    gap: '0.5rem',
+    marginBottom: '0.75rem'
   };
 
   const inputStyle = {
@@ -114,25 +142,54 @@ export default function Login() {
     cursor: 'pointer',
     fontSize: '0.875rem',
     textAlign: 'center',
-    marginTop: '1rem'
+    marginTop: '0.75rem'
   };
 
-  const hintStyle = {
-    color: 'var(--text-secondary)',
-    fontSize: '0.75rem',
+  const tabContainerStyle = {
+    display: 'flex',
+    marginBottom: '1.5rem',
+    borderBottom: '1px solid var(--border-color)'
+  };
+
+  const tabStyle = (active) => ({
+    flex: 1,
+    padding: '0.75rem',
     textAlign: 'center',
-    marginBottom: '1rem'
+    cursor: 'pointer',
+    borderBottom: active ? '2px solid #0078d4' : 'none',
+    color: active ? '#0078d4' : 'var(--text-secondary)',
+    fontWeight: active ? 600 : 400
+  });
+
+  const passwordButtonStyle = {
+    ...buttonStyle,
+    backgroundColor: loading ? '#93c5fd' : '#0284c7'
   };
 
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
         <h1 style={titleStyle}>Ticket KPI Dashboard</h1>
-        <p style={subtitleStyle}>Melden Sie sich mit Ihrem Microsoft-Konto an</p>
+        <p style={subtitleStyle}>Melden Sie sich an</p>
 
         {error && <p style={errorStyle}>{error}</p>}
 
-        {!devMode ? (
+        <div style={tabContainerStyle}>
+          <div 
+            style={tabStyle(loginMode === 'microsoft')} 
+            onClick={() => { setLoginMode('microsoft'); setError(''); }}
+          >
+            Microsoft
+          </div>
+          <div 
+            style={tabStyle(loginMode === 'password')} 
+            onClick={() => { setLoginMode('password'); setError(''); }}
+          >
+            Passwort
+          </div>
+        </div>
+
+        {loginMode === 'microsoft' ? (
           <>
             <button style={buttonStyle} onClick={handleMicrosoftLogin}>
               <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
@@ -143,25 +200,37 @@ export default function Login() {
               </svg>
               Mit Microsoft anmelden
             </button>
-            <p style={linkStyle} onClick={() => setDevMode(true)}>
-              Entwickler-Modus
+            <p style={{ ...linkStyle, marginTop: '1rem' }} onClick={() => setLoginMode('password')}>
+              Passwort-Anmeldung verwenden
             </p>
           </>
         ) : (
-          <form onSubmit={handleDevLogin}>
-            <p style={hintStyle}>Name wird automatisch aus der Datenbank geladen</p>
+          <form onSubmit={handlePasswordLogin}>
             <input
               type="email"
-              placeholder="E-Mail (z.B. tk@contact.de)"
+              placeholder="E-Mail"
               value={devEmail}
               onChange={(e) => setDevEmail(e.target.value)}
               style={inputStyle}
+              required
             />
-            <button type="submit" style={buttonStyle}>
-              Anmelden
+            <input
+              type="password"
+              placeholder="Passwort"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={inputStyle}
+              required
+            />
+            <button 
+              type="submit" 
+              style={passwordButtonStyle}
+              disabled={loading}
+            >
+              {loading ? 'Anmeldung...' : 'Anmelden'}
             </button>
-            <p style={linkStyle} onClick={() => setDevMode(false)}>
-              Zurück zu Microsoft Login
+            <p style={linkStyle} onClick={() => setLoginMode('microsoft')}>
+              Mit Microsoft anmelden
             </p>
           </form>
         )}

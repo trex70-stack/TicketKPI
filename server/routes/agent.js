@@ -42,11 +42,15 @@ router.get('/:agentId/kpis', async (req, res) => {
       params.push(priority);
     }
 
+    const filterParams = params.slice(1);
+
     const ticketsNewNoAgent = await db.queryOne(`
       SELECT COUNT(*) as ${alias('count')}
       FROM cs_ticket_ticket t
-      ${baseWhere} AND t.status = '0' AND ${agentEmpty}
-    `, params);
+      WHERE t.status = '0' AND ${agentEmpty}
+      ${category && category !== 'all' ? ' AND t.type_id = ?' : ''}
+      ${priority && priority !== 'all' ? ' AND t.priority_id = ?' : ''}
+    `, filterParams);
 
     const ticketsInProgress = await db.queryOne(`
       SELECT COUNT(*) as ${alias('count')}
@@ -54,7 +58,6 @@ router.get('/:agentId/kpis', async (req, res) => {
       ${baseWhere} AND t.status = '80'
     `, params);
 
-    const filterParams = params.slice(1);
     const allAgentsInProgress = await db.queryAll(`
       SELECT t.agent, COUNT(*) as ${alias('count')}
       FROM cs_ticket_ticket t

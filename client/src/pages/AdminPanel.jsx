@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Shield, User, Briefcase, Trash2, UserPlus, Pencil, X, Check, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Shield, User, Briefcase, Trash2, UserPlus, Pencil, X, Check, Sun, Moon, Mail, Clock, Send, Copy } from 'lucide-react';
 
 const getApiBase = () => {
   const host = window.location.hostname;
@@ -12,11 +12,12 @@ export default function AdminPanel() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
+  const [pendingInvitations, setPendingInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'standard', kuerzel: '' });
   
   const [editingUser, setEditingUser] = useState(null);
@@ -27,8 +28,11 @@ export default function AdminPanel() {
     return saved ? JSON.parse(saved) : false;
   });
 
+  const [activeTab, setActiveTab] = useState('users');
+
   useEffect(() => {
     loadUsers();
+    loadPendingInvitations();
   }, []);
 
   useEffect(() => {
@@ -45,11 +49,23 @@ export default function AdminPanel() {
       const response = await fetch(`${getApiBase()}/users`);
       if (!response.ok) throw new Error('Failed to load users');
       const data = await response.json();
-      setUsers(data);
+      setUsers(data.filter(u => u.password_set !== 0));
     } catch (err) {
       setError(err.message);
     }
     setLoading(false);
+  };
+
+  const loadPendingInvitations = async () => {
+    try {
+      const response = await fetch(`${getApiBase()}/invitations/pending`);
+      if (response.ok) {
+        const data = await response.json();
+        setPendingInvitations(data);
+      }
+    } catch (err) {
+      console.error('Failed to load pending invitations:', err);
+    }
   };
 
   const updateRole = async (userId, newRole) => {
@@ -125,35 +141,100 @@ export default function AdminPanel() {
     }
   };
 
-  const addUser = async (e) => {
+  const sendInvitation = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     
-    if (!newUser.name || !newUser.email) {
-      setError('Name und E-Mail sind erforderlich');
+    if (!newUser.email) {
+      setError('E-Mail ist erforderlich');
       return;
     }
 
     try {
-      const response = await fetch(`${getApiBase()}/users`, {
+      const response = await fetch(`${getApiBase()}/invitations/invite`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-name': user?.name || 'Administrator'
+        },
         body: JSON.stringify(newUser)
       });
+      
+      const data = await response.json();
+      
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create user');
+        throw new Error(data.error || 'Failed to send invitation');
       }
       
-      const createdUser = await response.json();
-      setUsers([...users, createdUser]);
+      if (data.inviteUrl) {
+        setSuccess(`Einladung erstellt! Link: ${data.inviteUrl}`);
+        navigator.clipboard?.writeText(data.inviteUrl);
+      } else {
+        setSuccess(`Einladung an ${newUser.email} gesendet`);
+      }
+      
       setNewUser({ name: '', email: '', role: 'standard', kuerzel: '' });
-      setShowAddForm(false);
-      setSuccess('Benutzer erfolgreich angelegt');
+      setShowInviteForm(false);
+      loadPendingInvitations();
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const resendInvitation = async (userId) => {
+    setError('');
+    setSuccess('');
+    try {
+      const response = await fetch(`${getApiBase()}/invitations/resend/${userId}`, {
+        method: 'POST',
+        headers: { 'x-user-name': user?.name || 'Administrator' }
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to resend invitation');
+      }
+      
+      if (data.inviteUrl) {
+        setSuccess(`Neuer Link: ${data.inviteUrl}`);
+        navigator.clipboard?.writeText(data.inviteUrl);
+      } else {
+        setSuccess('Einladung erneut gesendet');
+      }
+      
+      loadPendingInvitations();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const cancelInvitation = async (userId) => {
+    if (!window.confirm('Einladung wirklich stornieren?')) return;
+    
+    setError('');
+    setSuccess('');
+    try {
+      const response = await fetch(`${getApiBase()}/invitations/cancel/${userId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to cancel invitation');
+      }
+      
+      setSuccess('Einladung storniert');
+      loadPendingInvitations();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const copyInviteLink = (inviteUrl) => {
+    navigator.clipboard?.writeText(inviteUrl);
+    setSuccess('Link in Zwischenablage kopiert');
   };
 
   const startEdit = (u) => {
@@ -176,6 +257,12 @@ export default function AdminPanel() {
       case 'management': return <Briefcase size={16} style={{ color: '#2563eb' }} />;
       default: return <User size={16} style={{ color: '#6b7280' }} />;
     }
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   const containerStyle = {
@@ -248,6 +335,23 @@ export default function AdminPanel() {
     fontWeight: 500
   };
 
+  const tabContainerStyle = {
+    display: 'flex',
+    gap: '0.5rem',
+    marginBottom: '1.5rem'
+  };
+
+  const tabStyle = (active) => ({
+    padding: '0.75rem 1.5rem',
+    backgroundColor: active ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+    color: active ? 'white' : 'var(--text-primary)',
+    border: 'none',
+    borderRadius: '0.5rem',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+    fontWeight: 500
+  });
+
   const tableContainerStyle = {
     backgroundColor: 'var(--bg-secondary)',
     borderRadius: '0.75rem',
@@ -314,7 +418,8 @@ export default function AdminPanel() {
     padding: '0.75rem',
     backgroundColor: darkMode ? 'rgba(5, 150, 105, 0.2)' : '#ecfdf5',
     border: darkMode ? '1px solid rgba(5, 150, 105, 0.3)' : 'none',
-    borderRadius: '0.5rem'
+    borderRadius: '0.5rem',
+    wordBreak: 'break-all'
   };
 
   const currentUserStyle = {
@@ -385,6 +490,15 @@ export default function AdminPanel() {
     fontWeight: 500
   };
 
+  const pendingBadgeStyle = {
+    backgroundColor: '#fef3c7',
+    color: '#92400e',
+    padding: '0.25rem 0.5rem',
+    borderRadius: '9999px',
+    fontSize: '0.75rem',
+    fontWeight: 500
+  };
+
   if (loading) {
     return (
       <div style={containerStyle}>
@@ -411,9 +525,9 @@ export default function AdminPanel() {
           >
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          <button style={addButtonStyle} onClick={() => setShowAddForm(!showAddForm)}>
+          <button style={addButtonStyle} onClick={() => setShowInviteForm(!showInviteForm)}>
             <UserPlus size={18} />
-            Neuer Benutzer
+            Einladen
           </button>
         </div>
       </div>
@@ -421,10 +535,13 @@ export default function AdminPanel() {
       {error && <div style={errorStyle}>{error}</div>}
       {success && <div style={successStyle}>{success}</div>}
 
-      {showAddForm && (
+      {showInviteForm && (
         <div style={formContainerStyle}>
-          <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)', fontSize: '1rem' }}>Neuen Benutzer anlegen</h3>
-          <form onSubmit={addUser}>
+          <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Mail size={18} />
+            Neue Person einladen
+          </h3>
+          <form onSubmit={sendInvitation}>
             <div style={formRowStyle}>
               <input
                 type="text"
@@ -435,10 +552,11 @@ export default function AdminPanel() {
               />
               <input
                 type="email"
-                placeholder="E-Mail (z.B. mm@contact.de)"
+                placeholder="E-Mail (erforderlich)"
                 value={newUser.email}
                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                 style={inputStyle}
+                required
               />
               <input
                 type="text"
@@ -459,150 +577,238 @@ export default function AdminPanel() {
             </div>
             <div style={formActionsStyle}>
               <button type="button" style={cancelButtonStyle} onClick={() => {
-                setShowAddForm(false);
+                setShowInviteForm(false);
                 setNewUser({ name: '', email: '', role: 'standard', kuerzel: '' });
               }}>
                 Abbrechen
               </button>
               <button type="submit" style={submitButtonStyle}>
-                Anlegen
+                <Send size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                Einladung senden
               </button>
             </div>
           </form>
         </div>
       )}
 
-      <div style={tableContainerStyle}>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Name</th>
-              <th style={thStyle}>E-Mail</th>
-              <th style={thStyle}>Kürzel</th>
-              <th style={thStyle}>Rolle</th>
-              <th style={thStyle}>Aktionen</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} style={u.id === user?.id ? currentUserStyle : {}}>
-                <td style={tdStyle}>
-                  {editingUser === u.id ? (
-                    <input
-                      type="text"
-                      value={editForm.name}
-                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      style={smallInputStyle}
-                    />
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {getRoleIcon(u.role)}
-                      {u.name}
-                      {u.id === user?.id && (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)' }}>(Du)</span>
+      <div style={tabContainerStyle}>
+        <button 
+          style={tabStyle(activeTab === 'users')} 
+          onClick={() => setActiveTab('users')}
+        >
+          Benutzer ({users.length})
+        </button>
+        <button 
+          style={tabStyle(activeTab === 'invitations')} 
+          onClick={() => setActiveTab('invitations')}
+        >
+          Offene Einladungen ({pendingInvitations.length})
+          {pendingInvitations.length > 0 && (
+            <span style={{ ...pendingBadgeStyle, marginLeft: '0.5rem' }}>
+              {pendingInvitations.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'users' && (
+        <div style={tableContainerStyle}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Name</th>
+                <th style={thStyle}>E-Mail</th>
+                <th style={thStyle}>Kürzel</th>
+                <th style={thStyle}>Rolle</th>
+                <th style={thStyle}>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} style={u.id === user?.id ? currentUserStyle : {}}>
+                  <td style={tdStyle}>
+                    {editingUser === u.id ? (
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        style={smallInputStyle}
+                      />
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {getRoleIcon(u.role)}
+                        {u.name}
+                        {u.id === user?.id && (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)' }}>(Du)</span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td style={tdStyle}>
+                    {editingUser === u.id ? (
+                      <input
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                        style={smallInputStyle}
+                      />
+                    ) : (
+                      u.email
+                    )}
+                  </td>
+                  <td style={tdStyle}>
+                    {editingUser === u.id ? (
+                      <input
+                        type="text"
+                        value={editForm.kuerzel}
+                        onChange={(e) => setEditForm({ ...editForm, kuerzel: e.target.value })}
+                        placeholder="z.B. MM"
+                        style={{ ...smallInputStyle, minWidth: '60px', maxWidth: '80px' }}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={u.kuerzel || ''}
+                        onChange={(e) => updateKuerzel(u.id, e.target.value)}
+                        placeholder="z.B. MM"
+                        style={{ ...smallInputStyle, minWidth: '60px', maxWidth: '80px' }}
+                        disabled
+                      />
+                    )}
+                  </td>
+                  <td style={tdStyle}>
+                    <select
+                      value={u.role}
+                      onChange={(e) => updateRole(u.id, e.target.value)}
+                      style={selectStyle}
+                      disabled={u.id === user?.id}
+                    >
+                      <option value="standard">Standard User</option>
+                      <option value="management">Management</option>
+                      <option value="admin">Administrator</option>
+                    </select>
+                  </td>
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {editingUser === u.id ? (
+                        <>
+                          <button 
+                            style={{ ...iconButtonStyle, color: '#22c55e' }}
+                            onClick={() => saveEdit(u.id)}
+                            title="Speichern"
+                          >
+                            <Check size={16} />
+                          </button>
+                          <button 
+                            style={{ ...iconButtonStyle, color: '#dc2626' }}
+                            onClick={cancelEdit}
+                            title="Abbrechen"
+                          >
+                            <X size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button 
+                            style={iconButtonStyle}
+                            onClick={() => startEdit(u)}
+                            title="Bearbeiten"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          {u.id !== user?.id && u.email !== 'tk@contact.de' && (
+                            <button 
+                              style={{ ...iconButtonStyle, color: '#dc2626' }}
+                              onClick={() => deleteUser(u.id)}
+                              title="Löschen"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
-                  )}
-                </td>
-                <td style={tdStyle}>
-                  {editingUser === u.id ? (
-                    <input
-                      type="email"
-                      value={editForm.email}
-                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                      style={smallInputStyle}
-                    />
-                  ) : (
-                    u.email
-                  )}
-                </td>
-                <td style={tdStyle}>
-                  {editingUser === u.id ? (
-                    <input
-                      type="text"
-                      value={editForm.kuerzel}
-                      onChange={(e) => setEditForm({ ...editForm, kuerzel: e.target.value })}
-                      placeholder="z.B. MM"
-                      style={{ ...smallInputStyle, minWidth: '60px', maxWidth: '80px' }}
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={u.kuerzel || ''}
-                      onChange={(e) => updateKuerzel(u.id, e.target.value)}
-                      placeholder="z.B. MM"
-                      style={{ ...smallInputStyle, minWidth: '60px', maxWidth: '80px' }}
-                      disabled
-                    />
-                  )}
-                </td>
-                <td style={tdStyle}>
-                  <select
-                    value={u.role}
-                    onChange={(e) => updateRole(u.id, e.target.value)}
-                    style={selectStyle}
-                    disabled={u.id === user?.id}
-                  >
-                    <option value="standard">Standard User</option>
-                    <option value="management">Management</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                </td>
-                <td style={tdStyle}>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {editingUser === u.id ? (
-                      <>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            <p><strong>Rollen:</strong></p>
+            <ul style={{ margin: '0.5rem 0 0 1rem' }}>
+              <li><Shield size={12} style={{ display: 'inline', marginRight: '0.25rem' }} /> <strong>Administrator:</strong> Kann Rollen vergeben, alle Dashboards sehen</li>
+              <li><Briefcase size={12} style={{ display: 'inline', marginRight: '0.25rem' }} /> <strong>Management:</strong> Kann Management-Dashboard sehen</li>
+              <li><User size={12} style={{ display: 'inline', marginRight: '0.25rem' }} /> <strong>Standard User:</strong> Nur eigene Dashboards (Reporter/Agent)</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'invitations' && (
+        <div style={tableContainerStyle}>
+          {pendingInvitations.length === 0 ? (
+            <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
+              Keine offenen Einladungen
+            </p>
+          ) : (
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Name</th>
+                  <th style={thStyle}>E-Mail</th>
+                  <th style={thStyle}>Rolle</th>
+                  <th style={thStyle}>Gültig bis</th>
+                  <th style={thStyle}>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingInvitations.map((inv) => (
+                  <tr key={inv.id}>
+                    <td style={tdStyle}>{inv.name}</td>
+                    <td style={tdStyle}>{inv.email}</td>
+                    <td style={tdStyle}>
+                      <span style={{ 
+                        padding: '0.25rem 0.5rem', 
+                        borderRadius: '0.25rem',
+                        backgroundColor: inv.role === 'admin' ? '#fee2e2' : inv.role === 'management' ? '#dbeafe' : '#f3f4f6',
+                        color: inv.role === 'admin' ? '#991b1b' : inv.role === 'management' ? '#1e40af' : '#374151',
+                        fontSize: '0.75rem'
+                      }}>
+                        {inv.role}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Clock size={14} style={{ color: 'var(--text-secondary)' }} />
+                        {formatDate(inv.invitation_expires)}
+                      </div>
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <button 
-                          style={{ ...iconButtonStyle, color: '#22c55e' }}
-                          onClick={() => saveEdit(u.id)}
-                          title="Speichern"
+                          style={{ ...iconButtonStyle, color: '#0284c7' }}
+                          onClick={() => resendInvitation(inv.id)}
+                          title="Erneut senden"
                         >
-                          <Check size={16} />
+                          <Send size={16} />
                         </button>
                         <button 
                           style={{ ...iconButtonStyle, color: '#dc2626' }}
-                          onClick={cancelEdit}
-                          title="Abbrechen"
+                          onClick={() => cancelInvitation(inv.id)}
+                          title="Stornieren"
                         >
-                          <X size={16} />
+                          <Trash2 size={16} />
                         </button>
-                      </>
-                    ) : (
-                      <>
-                        <button 
-                          style={iconButtonStyle}
-                          onClick={() => startEdit(u)}
-                          title="Bearbeiten"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        {u.id !== user?.id && u.email !== 'tk@contact.de' && (
-                          <button 
-                            style={{ ...iconButtonStyle, color: '#dc2626' }}
-                            onClick={() => deleteUser(u.id)}
-                            title="Löschen"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-          <p><strong>Rollen:</strong></p>
-          <ul style={{ margin: '0.5rem 0 0 1rem' }}>
-            <li><Shield size={12} style={{ display: 'inline', marginRight: '0.25rem' }} /> <strong>Administrator:</strong> Kann Rollen vergeben, alle Dashboards sehen</li>
-            <li><Briefcase size={12} style={{ display: 'inline', marginRight: '0.25rem' }} /> <strong>Management:</strong> Kann Management-Dashboard sehen</li>
-            <li><User size={12} style={{ display: 'inline', marginRight: '0.25rem' }} /> <strong>Standard User:</strong> Nur eigene Dashboards (Reporter/Agent)</li>
-          </ul>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

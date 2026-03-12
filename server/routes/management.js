@@ -18,6 +18,8 @@ router.get('/kpis', async (req, res) => {
     const statusCol = isOracle ? 'STATUS' : 'status';
     const priorityCol = isOracle ? 'PRIORITY' : 'priority';
     const avgMinutesCol = isOracle ? 'AVG_MINUTES' : 'avg_minutes';
+    const monthCol = isOracle ? 'MONTH' : 'month';
+    const avgTimeCol = isOracle ? 'AVG_TIME' : 'avg_time';
 
     const yearWhere = isOracle 
       ? `TO_CHAR(t.CDB_CDATE, 'YY') = ${yearFilter}`
@@ -135,6 +137,53 @@ router.get('/kpis', async (req, res) => {
         count: row[countCol]
       }))
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/time-to-processing', async (req, res) => {
+  try {
+    const db = getKpiDB();
+    const isOracle = getDbType() === 'oracle';
+
+    const categoryCol = isOracle ? 'CATEGORY' : 'category';
+    const monthCol = isOracle ? 'MONTH' : 'month';
+    const avgTimeCol = isOracle ? 'AVG_TIME' : 'avg_time';
+    const countCol = isOracle ? 'COUNT' : 'count';
+
+    const monthExpr = isOracle 
+      ? `TO_CHAR(p.CDBPROT_ZEIT, 'YYYY-MM')`
+      : `substr(p.CDBPROT_ZEIT, 1, 7)`;
+
+    const dateDiffMinutes = isOracle
+      ? `AVG((p.CDBPROT_ZEIT - t.CDB_CDATE) * 24 * 60)`
+      : `AVG((julianday(p.CDBPROT_ZEIT) - julianday(t.CDB_CDATE)) * 24 * 60)`;
+
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    const startMonth = twelveMonthsAgo.toISOString().slice(0, 7);
+
+    const data = await db.queryAll(`
+      SELECT 
+        ty.type_name_de as ${alias('category')},
+        ${monthExpr} as ${alias('month')},
+        ROUND(${dateDiffMinutes}) as ${alias('avg_time')},
+        COUNT(*) as ${alias('count')}
+      FROM cs_ticket_ticket t
+      JOIN cs_ticket_prot p ON t.ticket_id = p.TICKET_ID AND p.CDBPROT_NEWSTATE = 80
+      JOIN cs_ticket_type ty ON t.type_id = ty.type_id
+      WHERE ${monthExpr} >= ?
+      GROUP BY ty.type_name_de, ${monthExpr}
+      ORDER BY ${monthExpr}, ty.type_name_de
+    `, [startMonth]);
+
+    res.json(data.map(row => ({
+      category: row[categoryCol],
+      month: row[monthCol],
+      avgTime: Math.round(row[avgTimeCol]) || 0,
+      count: row[countCol]
+    })));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

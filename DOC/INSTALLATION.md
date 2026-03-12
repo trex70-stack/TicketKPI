@@ -7,8 +7,10 @@
 4. [Oracle Instant Client installieren](#oracle-instant-client-installieren)
 5. [Anwendung konfigurieren](#anwendung-konfigurieren)
 6. [Azure AD Authentifizierung konfigurieren](#azure-ad-authentifizierung-konfigurieren)
-7. [Anwendung starten](#anwendung-starten)
-8. [Produktionsbetrieb](#produktionsbetrieb)
+7. [SMTP E-Mail-Service konfigurieren](#smtp-e-mail-service-konfigurieren)
+8. [Benutzer einladen](#benutzer-einladen)
+9. [Anwendung starten](#anwendung-starten)
+10. [Produktionsbetrieb](#produktionsbetrieb)
 
 ---
 
@@ -271,6 +273,103 @@ Falls E-Mail nicht im Token enthalten ist:
 ### Entwickler-Modus
 
 Ohne Azure AD Konfiguration zeigt die Login-Seite automatisch den **Entwickler-Modus** an. Damit kann man sich mit einer beliebigen E-Mail-Adresse anmelden (nur für Testzwecke).
+
+---
+
+## SMTP E-Mail-Service konfigurieren
+
+Für die Einladungs-Funktion wird ein SMTP-Server benötigt.
+
+### Konfiguration
+
+In `server/database.config.json` den `email`-Abschnitt hinzufügen:
+
+```json
+{
+  "database": { ... },
+  "server": { ... },
+  "email": {
+    "enabled": true,
+    "host": "smtp.example.com",
+    "port": 587,
+    "secure": false,
+    "user": "your-email@example.com",
+    "password": "your-password",
+    "from": "noreply@example.com"
+  }
+}
+```
+
+### Parameter
+
+| Parameter | Beschreibung | Beispiel |
+|-----------|--------------|----------|
+| `enabled` | E-Mail aktivieren | `true` |
+| `host` | SMTP-Server | `smtp.gmail.com` |
+| `port` | SMTP-Port | `587` (TLS) oder `465` (SSL) |
+| `secure` | SSL verwenden | `true` für Port 465 |
+| `user` | SMTP-Benutzer | `your-email@gmail.com` |
+| `password` | SMTP-Passwort | `app-password` |
+| `from` | Absender-Adresse | `noreply@example.com` |
+
+### Gmail Beispiel
+
+Für Gmail muss ein **App-Passwort** erstellt werden (nicht das normale Passwort):
+
+1. Google-Konto → Sicherheit → 2-Faktor-Authentifizierung aktivieren
+2. App-Passwörter → Neues App-Passwort erstellen
+3. Passwort in der Konfiguration verwenden
+
+```json
+"email": {
+  "enabled": true,
+  "host": "smtp.gmail.com",
+  "port": 587,
+  "secure": false,
+  "user": "your-email@gmail.com",
+  "password": "abcd-efgh-ijkl-mnop",
+  "from": "your-email@gmail.com"
+}
+```
+
+### Ohne E-Mail-Service
+
+Wenn kein SMTP konfiguriert ist (`enabled: false`), wird beim Einladen ein Link angezeigt, den man manuell an die Person senden kann.
+
+---
+
+## Benutzer einladen
+
+### Voraussetzungen
+
+- Administrator-Rolle erforderlich
+- SMTP konfiguriert ODER manueller Link-Versand
+
+### Einladung senden
+
+1. Als Administrator anmelden
+2. Im Admin-Panel auf **"Einladen"** klicken
+3. E-Mail-Adresse eingeben (erforderlich)
+4. Name, Kürzel und Rolle optional ergänzen
+5. **"Einladung senden"** klicken
+
+### Einladungsprozess
+
+1. Die eingeladene Person erhält eine E-Mail mit einem Link
+2. Der Link führt zur Passwort-Setzen-Seite
+3. Die Person wählt ein Passwort (Anforderungen: 8+ Zeichen, Groß/Klein, Zahl, Sonderzeichen)
+4. Nach dem Setzen kann sich die Person anmelden
+
+### Offene Einladungen
+
+Im Tab **"Offene Einladungen"** können Sie:
+- Noch nicht aktivierte Einladungen sehen
+- Einladungen erneut senden
+- Einladungen stornieren
+
+### Einladungsgültigkeit
+
+Einladungslinks sind **7 Tage** gültig.
 
 ---
 
