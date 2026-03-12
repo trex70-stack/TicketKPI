@@ -75,7 +75,7 @@ router.post('/resend/:userId', async (req, res) => {
     
     await db.run(`
       UPDATE users 
-      SET invitation_token = ?, invitation_expires = ?, updated_at = CURRENT_TIMESTAMP
+      SET invitation_token = ?, invitation_expires = ?, updated_at = datetime("now")
       WHERE id = ?
     `, [invitationToken, invitationExpires, user.id]);
     

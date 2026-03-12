@@ -37,7 +37,6 @@ return (
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/set-password" element={<SetPassword />} />
         <Route path="/login" element={!isAuthenticated() ? <Login /> : <Navigate to="/" />} />
-        <Route path="/admin" element={isAuthenticated() ? <AdminPanel /> : <Navigate to="/login" />} />
         <Route path="/*" element={isAuthenticated() ? <DashboardLayout /> : <Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
@@ -104,6 +103,11 @@ function DashboardLayout() {
     const isPreselected = user?.role !== 'admin';
     
     switch (activeView) {
+      case 'admin':
+        if (isAdmin()) {
+          return <AdminPanel onBack={() => setActiveView(availableViews[0]?.id || 'reporter')} />;
+        }
+        return null;
       case 'reporter':
         if (isInReporterList()) {
           return <ReporterDashboard filters={filters} preselectedReporter={isPreselected ? user.kuerzel : null} />;
@@ -171,7 +175,7 @@ function DashboardLayout() {
   const availableViews = getAvailableViews();
 
   useEffect(() => {
-    if (availableViews.length > 0 && !availableViews.find(v => v.id === activeView)) {
+    if (availableViews.length > 0 && !availableViews.find(v => v.id === activeView) && activeView !== 'admin') {
       setActiveView(availableViews[0].id);
     }
   }, [availableViews.length, activeView]);
@@ -182,22 +186,22 @@ function DashboardLayout() {
         <Sidebar
           activeView={activeView}
           setActiveView={setActiveView}
+          isAdmin={isAdmin()}
+          availableViews={availableViews}
           darkMode={darkMode}
           setDarkMode={setDarkMode}
-          isAdmin={isAdmin()}
           onLogout={logout}
-          availableViews={availableViews}
         />
       )}
       {isMobile && (
         <Header
           activeView={activeView}
           setActiveView={setActiveView}
+          isAdmin={isAdmin()}
+          availableViews={availableViews}
           darkMode={darkMode}
           setDarkMode={setDarkMode}
-          isAdmin={isAdmin()}
           onLogout={logout}
-          availableViews={availableViews}
         />
       )}
       <main style={mainStyle}>

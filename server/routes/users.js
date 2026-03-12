@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { getConfigDB, getDbType } from '../db.js';
+import { getConfigDB } from '../db.js';
 
 const router = Router();
 
 router.get('/', async (req, res) => {
   try {
     const db = getConfigDB();
-    const users = await db.queryAll('SELECT id, email, name, kuerzel, role, created_at FROM users ORDER BY name', []);
+    const users = await db.queryAll('SELECT id, email, name, kuerzel, role, password_set, created_at FROM users ORDER BY name', []);
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -35,13 +35,8 @@ router.put('/:id/role', async (req, res) => {
     }
     
     const db = getConfigDB();
-    const dbType = getDbType();
     
-    if (dbType === 'oracle') {
-      await db.run('UPDATE users SET role = ?, updated_at = SYSDATE WHERE id = ?', [role, req.params.id]);
-    } else {
-      await db.run('UPDATE users SET role = ?, updated_at = datetime("now") WHERE id = ?', [role, req.params.id]);
-    }
+    await db.run('UPDATE users SET role = ?, updated_at = datetime("now") WHERE id = ?', [role, req.params.id]);
     
     const user = await db.queryOne('SELECT id, email, name, kuerzel, role FROM users WHERE id = ?', [req.params.id]);
     res.json(user);
@@ -68,7 +63,6 @@ router.put('/:id', async (req, res) => {
   try {
     const { name, email, kuerzel } = req.body;
     const db = getConfigDB();
-    const dbType = getDbType();
     
     const fields = [];
     const values = [];
@@ -90,11 +84,7 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'No fields to update' });
     }
     
-    if (dbType === 'oracle') {
-      fields.push('updated_at = SYSDATE');
-    } else {
-      fields.push('updated_at = datetime("now")');
-    }
+    fields.push('updated_at = datetime("now")');
     
     values.push(req.params.id);
     

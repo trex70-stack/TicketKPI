@@ -32,9 +32,9 @@ router.post('/login', async (req, res) => {
       if (!user) {
         const userName = name || email.split('@')[0];
         await db.run(`
-          INSERT INTO users (azure_id, email, name, role, password_set)
-          VALUES (?, ?, ?, 'standard', 1)
-        `, [azureId, email, userName]);
+          INSERT INTO users (azure_id, email, name, kuerzel, role, password_set)
+          VALUES (?, ?, ?, ?, 'standard', 1)
+        `, [azureId, email, userName, azureId]);
         user = await db.queryOne('SELECT * FROM users WHERE azure_id = ?', [azureId]);
       }
       
@@ -150,7 +150,7 @@ router.post('/set-password', async (req, res) => {
     
     await db.run(`
       UPDATE users 
-      SET password_hash = ?, password_set = 1, invitation_token = NULL, invitation_expires = NULL, updated_at = CURRENT_TIMESTAMP
+      SET password_hash = ?, password_set = 1, invitation_token = NULL, invitation_expires = NULL, updated_at = datetime("now")
       WHERE id = ?
     `, [passwordHash, user.id]);
     
@@ -222,7 +222,7 @@ router.post('/request-password-reset', async (req, res) => {
     
     await db.run(`
       UPDATE users 
-      SET reset_token = ?, reset_token_expires = ?, updated_at = CURRENT_TIMESTAMP
+      SET reset_token = ?, reset_token_expires = ?, updated_at = datetime("now")
       WHERE id = ?
     `, [resetToken, expires, user.id]);
     
@@ -268,11 +268,54 @@ router.post('/reset-password', async (req, res) => {
     
     await db.run(`
       UPDATE users 
-      SET password_hash = ?, password_set = 1, reset_token = NULL, reset_token_expires = NULL, updated_at = CURRENT_TIMESTAMP
+      SET password_hash = ?, password_set = 1, reset_token = NULL, reset_token_expires = NULL, updated_at = datetime("now")
       WHERE id = ?
     `, [passwordHash, user.id]);
     
     res.json({ message: 'Passwort erfolgreich zurückgesetzt' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/change-password', async (req, res) => {
+  try {
+    const { userId, currentPassword, newPassword } = req.body;
+    
+    if (!userId || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Alle Felder erforderlich' });
+    }
+    
+    const validation = validatePassword(newPassword);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.errors.join(', ') });
+    }
+    
+    const db = getConfigDB();
+    const user = await db.queryOne('SELECT * FROM users WHERE id = ?', [userId]);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+    
+    if (!user.password_hash) {
+      return res.status(400).json({ error: 'Kein Passwort gesetzt' });
+    }
+    
+    const validPassword = await verifyPassword(currentPassword, user.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Aktuelles Passwort falsch' });
+    }
+    
+    const passwordHash = await hashPassword(newPassword);
+    
+    await db.run(`
+      UPDATE users 
+      SET password_hash = ?, updated_at = datetime("now")
+      WHERE id = ?
+    `, [passwordHash, user.id]);
+    
+    res.json({ message: 'Passwort erfolgreich geändert' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

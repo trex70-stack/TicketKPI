@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, Shield, User, Briefcase, Trash2, UserPlus, Pencil, X, Check, Sun, Moon, Mail, Clock, Send, Copy } from 'lucide-react';
 
@@ -8,14 +7,16 @@ const getApiBase = () => {
   return `http://${host}:3001/api`;
 };
 
-export default function AdminPanel() {
+export default function AdminPanel({ onBack }) {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [pendingInvitations, setPendingInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  const isCurrentUser = (userId) => String(userId) === String(user?.id);
+  const isEditing = (userId) => String(editingUser) === String(userId);
   
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'standard', kuerzel: '' });
@@ -77,7 +78,8 @@ export default function AdminPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole })
       });
-      if (!response.ok) throw new Error('Failed to update role');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update role');
       
       setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
       setSuccess('Rolle erfolgreich geändert');
@@ -95,7 +97,8 @@ export default function AdminPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kuerzel: newKuerzel })
       });
-      if (!response.ok) throw new Error('Failed to update kuerzel');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update kuerzel');
       
       setUsers(users.map(u => u.id === userId ? { ...u, kuerzel: newKuerzel } : u));
       setSuccess('Kürzel erfolgreich geändert');
@@ -113,7 +116,8 @@ export default function AdminPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      if (!response.ok) throw new Error('Failed to update user');
+      const respData = await response.json();
+      if (!response.ok) throw new Error(respData.error || 'Failed to update user');
       
       setUsers(users.map(u => u.id === userId ? { ...u, ...data } : u));
       setEditingUser(null);
@@ -387,7 +391,14 @@ export default function AdminPanel() {
     border: '1px solid var(--border-color)',
     backgroundColor: 'var(--bg-secondary)',
     color: 'var(--text-primary)',
-    fontSize: '0.875rem'
+    fontSize: '0.875rem',
+    cursor: 'pointer'
+  };
+
+  const disabledSelectStyle = {
+    ...selectStyle,
+    opacity: 0.5,
+    cursor: 'not-allowed'
   };
 
   const iconButtonStyle = {
@@ -511,7 +522,7 @@ export default function AdminPanel() {
     <div style={containerStyle}>
       <div style={headerStyle}>
         <div style={headerLeftStyle}>
-          <button style={backButtonStyle} onClick={() => navigate('/')}>
+          <button style={backButtonStyle} onClick={onBack}>
             <ArrowLeft size={20} />
             Zurück
           </button>
@@ -625,9 +636,9 @@ export default function AdminPanel() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} style={u.id === user?.id ? currentUserStyle : {}}>
+                <tr key={u.id} style={isCurrentUser(u.id) ? currentUserStyle : {}}>
                   <td style={tdStyle}>
-                    {editingUser === u.id ? (
+                    {isEditing(u.id) ? (
                       <input
                         type="text"
                         value={editForm.name}
@@ -638,14 +649,14 @@ export default function AdminPanel() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         {getRoleIcon(u.role)}
                         {u.name}
-                        {u.id === user?.id && (
+                        {isCurrentUser(u.id) && (
                           <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)' }}>(Du)</span>
                         )}
                       </div>
                     )}
                   </td>
                   <td style={tdStyle}>
-                    {editingUser === u.id ? (
+                    {isEditing(u.id) ? (
                       <input
                         type="email"
                         value={editForm.email}
@@ -657,7 +668,7 @@ export default function AdminPanel() {
                     )}
                   </td>
                   <td style={tdStyle}>
-                    {editingUser === u.id ? (
+                    {isEditing(u.id) ? (
                       <input
                         type="text"
                         value={editForm.kuerzel}
@@ -680,8 +691,8 @@ export default function AdminPanel() {
                     <select
                       value={u.role}
                       onChange={(e) => updateRole(u.id, e.target.value)}
-                      style={selectStyle}
-                      disabled={u.id === user?.id}
+                      style={isCurrentUser(u.id) ? disabledSelectStyle : selectStyle}
+                      disabled={isCurrentUser(u.id)}
                     >
                       <option value="standard">Standard User</option>
                       <option value="management">Management</option>
@@ -690,7 +701,7 @@ export default function AdminPanel() {
                   </td>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      {editingUser === u.id ? (
+                      {isEditing(u.id) ? (
                         <>
                           <button 
                             style={{ ...iconButtonStyle, color: '#22c55e' }}
@@ -716,7 +727,7 @@ export default function AdminPanel() {
                           >
                             <Pencil size={16} />
                           </button>
-                          {u.id !== user?.id && u.email !== 'tk@contact.de' && (
+                          {!isCurrentUser(u.id) && u.email !== 'tk@contact.de' && (
                             <button 
                               style={{ ...iconButtonStyle, color: '#dc2626' }}
                               onClick={() => deleteUser(u.id)}
