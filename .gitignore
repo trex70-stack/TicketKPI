@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Database files (contain sensitive data)
+config.db
+config_old.db
+config_encrypted.db
+config_pre_migration.db
+*.db-shm
+*.db-wal
+
+# Backup files
+server/backups/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build output
+client/dist/
