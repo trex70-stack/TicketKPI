@@ -4,8 +4,41 @@ const defaultClaimMapping = {
   azureId: 'oid',
   email: 'preferred_username',
   name: 'name',
-  kuerzel: 'onprem_sam_account_name'
+  kuerzel: 'OnPremisesSamAccountName'
 };
+
+const azureToJwtClaimMap = {
+  'ObjectId': 'oid',
+  'ObjectIdentifier': 'oid',
+  'UserPrincipalName': 'upn',
+  'PreferredUsername': 'preferred_username',
+  'OnPremisesSamAccountName': 'onprem_sam_account_name',
+  'OnPremisesSecurityIdentifier': 'onprem_sid',
+  'GivenName': 'given_name',
+  'Surname': 'family_name',
+  'FamilyName': 'family_name',
+  'DisplayName': 'name',
+  'Name': 'name',
+  'Email': 'email',
+  'TenantId': 'tid',
+  'JobTitle': 'jobTitle',
+  'Department': 'department',
+  'CompanyName': 'companyName'
+};
+
+function normalizeClaimName(name) {
+  if (!name) return name;
+  
+  if (azureToJwtClaimMap[name]) {
+    return azureToJwtClaimMap[name];
+  }
+  
+  if (name.includes('_')) {
+    return name.toLowerCase();
+  }
+  
+  return name;
+}
 
 export async function getClientConfig() {
   if (cachedConfig) {
@@ -77,11 +110,23 @@ export function getClaimMapping() {
 export function extractClaims(tokenPayload) {
   const mapping = getClaimMapping();
   
+  const azureIdClaim = normalizeClaimName(mapping.azureId);
+  const emailClaim = normalizeClaimName(mapping.email);
+  const nameClaim = normalizeClaimName(mapping.name);
+  const kuerzelClaim = normalizeClaimName(mapping.kuerzel);
+  
+  console.log('Claim Mapping (normalisiert):', {
+    azureId: azureIdClaim,
+    email: emailClaim,
+    name: nameClaim,
+    kuerzel: kuerzelClaim
+  });
+  
   return {
-    azureId: tokenPayload[mapping.azureId] || tokenPayload.oid || tokenPayload.sub,
-    email: tokenPayload[mapping.email] || tokenPayload.preferred_username || tokenPayload.email,
-    name: tokenPayload[mapping.name] || tokenPayload.name,
-    kuerzel: tokenPayload[mapping.kuerzel] || tokenPayload.onprem_sam_account_name
+    azureId: tokenPayload[azureIdClaim] || tokenPayload.oid || tokenPayload.sub,
+    email: tokenPayload[emailClaim] || tokenPayload.preferred_username || tokenPayload.email,
+    name: tokenPayload[nameClaim] || tokenPayload.name,
+    kuerzel: tokenPayload[kuerzelClaim] || tokenPayload.onprem_sam_account_name
   };
 }
 

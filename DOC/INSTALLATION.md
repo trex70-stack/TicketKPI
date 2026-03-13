@@ -381,36 +381,37 @@ Die Anwendung extrahiert Benutzerdaten aus dem Azure AD ID-Token. Das Mapping ka
 ```json
 {
   "azureClaimMapping": {
-    "azureId": "oid",
-    "email": "preferred_username",
-    "name": "name",
-    "kuerzel": "onprem_sam_account_name"
+    "azureId": "ObjectId",
+    "email": "PreferredUsername",
+    "name": "Name",
+    "kuerzel": "OnPremisesSamAccountName"
   }
 }
 ```
 
+**Hinweis:** Sie können sowohl Azure AD Eigenschaftsnamen (z.B. `OnPremisesSamAccountName`) als auch JWT Claim-Namen (z.B. `onprem_sam_account_name`) verwenden. Die Anwendung wandelt diese automatisch um.
+
 #### Verfügbare Claims
 
-| App-Feld | Standard-Claim | Beschreibung |
-|----------|----------------|--------------|
-| `azureId` | `oid` | Eindeutige Azure AD Objekt-ID |
-| `email` | `preferred_username` | E-Mail-Adresse / Benutzername |
-| `name` | `name` | Vollständiger Name |
-| `kuerzel` | `onprem_sam_account_name` | SAM-Account-Name (für Kürzel) |
+| App-Feld | Standard | Azure AD Eigenschaft | JWT Claim |
+|----------|----------|---------------------|-----------|
+| `azureId` | ObjectId | `ObjectId` | `oid` |
+| `email` | PreferredUsername | `PreferredUsername`, `UserPrincipalName` | `preferred_username`, `upn` |
+| `name` | Name | `Name`, `DisplayName` | `name` |
+| `kuerzel` | OnPremisesSamAccountName | `OnPremisesSamAccountName` | `onprem_sam_account_name` |
 
-#### Häufig verwendete Claims
+#### Weitere Azure AD Eigenschaften
 
-| Claim-Name | Beschreibung |
-|------------|--------------|
-| `oid` | Object ID (eindeutig) |
-| `sub` | Subject ID |
-| `preferred_username` | Bevorzugter Benutzername |
-| `email` | E-Mail-Adresse |
-| `name` | Anzeigename |
-| `onprem_sam_account_name` | On-premises SAM Account Name |
-| `given_name` | Vorname |
-| `family_name` | Nachname |
-| `upn` | User Principal Name |
+| Azure AD Eigenschaft | JWT Claim | Beschreibung |
+|---------------------|-----------|--------------|
+| `ObjectId` | `oid` | Eindeutige Azure AD Objekt-ID |
+| `UserPrincipalName` | `upn` | User Principal Name |
+| `PreferredUsername` | `preferred_username` | Bevorzugter Benutzername |
+| `OnPremisesSamAccountName` | `onprem_sam_account_name` | SAM Account Name |
+| `GivenName` | `given_name` | Vorname |
+| `Surname` / `FamilyName` | `family_name` | Nachname |
+| `JobTitle` | `jobTitle` | Berufsbezeichnung |
+| `Department` | `department` | Abteilung |
 
 #### Hinweis zum Kürzel
 

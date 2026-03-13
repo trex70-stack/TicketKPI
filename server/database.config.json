@@ -20,10 +20,10 @@
     "port": 3001
   },
   "azureClaimMapping": {
-    "azureId": "oid",
-    "email": "preferred_username",
-    "name": "name",
-    "kuerzel": "onprem_sam_account_name"
+    "azureId": "ObjectId",
+    "email": "PreferredUsername",
+    "name": "Name",
+    "kuerzel": "OnPremisesSamAccountName"
   },
   "email": {
     "enabled": false,
