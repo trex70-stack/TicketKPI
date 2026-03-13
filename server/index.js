@@ -28,6 +28,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/api/config', (req, res) => {
+  const config = getConfig();
+  res.json({
+    protocol: config.client?.protocol || 'http',
+    port: config.client?.port || config.server?.port || 3001
+  });
+});
+
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/invitations', invitationsRouter);

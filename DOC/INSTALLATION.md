@@ -6,13 +6,14 @@
 3. [Installation unter Linux](#installation-unter-linux)
 4. [Oracle Instant Client installieren](#oracle-instant-client-installieren)
 5. [Anwendung konfigurieren](#anwendung-konfigurieren)
-6. [Azure AD Authentifizierung konfigurieren](#azure-ad-authentifizierung-konfigurieren)
-7. [SMTP E-Mail-Service konfigurieren](#smtp-e-mail-service-konfigurieren)
-8. [Benutzer einladen](#benutzer-einladen)
-9. [Datenbank-Verschlüsselung](#datenbank-verschlüsselung)
-10. [Backup und Wiederherstellung](#backup-und-wiederherstellung)
-11. [Anwendung starten](#anwendung-starten)
-12. [Produktionsbetrieb](#produktionsbetrieb)
+6. [HTTPS-Konfiguration](#https-konfiguration)
+7. [Azure AD Authentifizierung konfigurieren](#azure-ad-authentifizierung-konfigurieren)
+8. [SMTP E-Mail-Service konfigurieren](#smtp-e-mail-service-konfigurieren)
+9. [Benutzer einladen](#benutzer-einladen)
+10. [Datenbank-Verschlüsselung](#datenbank-verschlüsselung)
+11. [Backup und Wiederherstellung](#backup-und-wiederherstellung)
+12. [Anwendung starten](#anwendung-starten)
+13. [Produktionsbetrieb](#produktionsbetrieb)
 
 ---
 
@@ -214,6 +215,10 @@ Datei `server/database.config.json` erstellen:
   },
   "server": {
     "port": 3001
+  },
+  "client": {
+    "protocol": "http",
+    "port": 3001
   }
 }
 ```
@@ -227,10 +232,107 @@ Datei `server/database.config.json` erstellen:
 | `connectString` | Verbindung zur DB | `172.27.7.183:1521/devu` |
 | `kpiSchema` | Schema mit Ticket-Daten | `CEDM` |
 | `port` | Server-Port | `3001` |
+| `client.protocol` | Protokoll für API | `http` oder `https` |
+| `client.port` | API-Port | `3001` oder `443` |
 
 ### SQLite für Benutzerverwaltung
 
 Die Benutzerverwaltung bleibt in SQLite. Die Datei `config.db` wird automatisch erstellt.
+
+---
+
+## HTTPS-Konfiguration
+
+Die Anwendung kann wahlweise mit HTTP (für Entwicklung/Tests) oder HTTPS (für Produktion) betrieben werden.
+
+### Konfiguration
+
+In `server/database.config.json` den `client`-Abschnitt hinzufügen:
+
+```json
+{
+  "database": { ... },
+  "server": { ... },
+  "client": {
+    "protocol": "http",
+    "port": 3001
+  }
+}
+```
+
+### Parameter
+
+| Parameter | Beschreibung | Werte |
+|-----------|--------------|-------|
+| `protocol` | Verwendetes Protokoll | `http` oder `https` |
+| `port` | API-Port | `3001` (HTTP) oder `443` (HTTPS) |
+
+### Entwicklung (HTTP)
+
+```json
+"client": {
+  "protocol": "http",
+  "port": 3001
+}
+```
+
+### Produktion (HTTPS)
+
+```json
+"client": {
+  "protocol": "https",
+  "port": 443
+}
+```
+
+### Automatische Erkennung
+
+Der Client erkennt automatisch das verwendete Protokoll:
+- Wird die Anwendung über HTTPS aufgerufen, nutzt der Client automatisch HTTPS für API-Aufrufe
+- Die Konfiguration wird beim Start vom Server geholt
+
+### Reverse Proxy für HTTPS
+
+Für HTTPS wird ein Reverse Proxy (z.B. nginx, Apache, IIS) empfohlen, der:
+1. SSL-Zertifikate verwaltet
+2. HTTPS-Anfragen entgegennimmt
+3. Anfragen an den Node.js-Server (Port 3001) weiterleitet
+
+**Beispiel nginx mit HTTPS:**
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name kpi.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/kpi.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/kpi.example.com/privkey.pem;
+
+    location / {
+        root /opt/ticketkpi/client/dist;
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+# HTTP zu HTTPS weiterleiten
+server {
+    listen 80;
+    server_name kpi.example.com;
+    return 301 https://$server_name$request_uri;
+}
+```
 
 ---
 

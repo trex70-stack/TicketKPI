@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { getApiBase } from '../services/config.js';
 import { ArrowLeft, Shield, User, Briefcase, Trash2, UserPlus, Pencil, X, Check, Sun, Moon, Mail, Clock, Send, Copy } from 'lucide-react';
-
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return `http://${host}:3001/api`;
-};
 
 export default function AdminPanel({ onBack }) {
   const { user } = useAuth();

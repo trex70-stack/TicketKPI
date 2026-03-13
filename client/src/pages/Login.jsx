@@ -1,11 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return `http://${host}:3001/api`;
-};
+import { getApiBase } from '../services/config.js';
 
 export default function Login() {
   const { login } = useAuth();

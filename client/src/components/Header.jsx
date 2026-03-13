@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getApiBase } from '../services/config.js';
 import { LayoutDashboard, User, Users, Settings, Shield, Moon, Sun, LogOut, Key, ChevronDown, ChevronUp } from 'lucide-react';
 
 export function Header({ activeView, setActiveView, isAdmin, availableViews, darkMode, setDarkMode, onLogout }) {
@@ -181,11 +182,6 @@ function PasswordModal({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  const getApiBase = () => {
-    const host = window.location.hostname;
-    return `http://${host}:3001/api`;
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

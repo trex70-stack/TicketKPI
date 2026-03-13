@@ -1,13 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { getApiBase, initConfig } from '../services/config.js';
 
 const AuthContext = createContext(null);
-
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return `http://${host}:3001/api`;
-};
-
-const API_BASE = getApiBase();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -15,7 +9,7 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    checkAuth();
+    initConfig().then(() => checkAuth());
   }, []);
 
   const checkAuth = async () => {
@@ -25,7 +19,7 @@ export function AuthProvider({ children }) {
         const userData = JSON.parse(savedUser);
         setUser(userData);
         try {
-          const response = await fetch(`${API_BASE}/users/${userData.id}`);
+          const response = await fetch(`${getApiBase()}/users/${userData.id}`);
           if (response.ok) {
             const freshUserData = await response.json();
             localStorage.setItem('user', JSON.stringify(freshUserData));
@@ -45,7 +39,7 @@ export function AuthProvider({ children }) {
 
   const login = async (azureId, email, name) => {
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
+      const response = await fetch(`${getApiBase()}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ azureId, email, name })

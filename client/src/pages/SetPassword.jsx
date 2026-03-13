@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return `http://${host}:3001/api`;
-};
+import { getApiBase } from '../services/config.js';
 
 export default function SetPassword() {
   const [searchParams] = useSearchParams();
