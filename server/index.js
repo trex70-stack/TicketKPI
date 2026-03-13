@@ -33,6 +33,7 @@ app.get('/api/config', (req, res) => {
   res.json({
     protocol: config.client?.protocol || 'http',
     port: config.client?.port || config.server?.port || 3001,
+    debug: config.client?.debug || false,
     azureClaimMapping: config.azureClaimMapping || {
       azureId: 'oid',
       email: 'preferred_username',

@@ -27,14 +27,7 @@ export default function AuthCallback() {
 
       try {
         const payload = JSON.parse(atob(idToken.split('.')[1]));
-        
-        console.log('=== Azure AD Token Claims ===');
-        console.log('Alle verfügbaren Claims:', Object.keys(payload));
-        console.log('Payload:', payload);
-        
         const claims = extractClaims(payload);
-        console.log('Extrahierte Claims:', claims);
-        console.log('============================');
         
         await login(
           claims.azureId,

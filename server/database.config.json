@@ -17,7 +17,8 @@
   },
   "client": {
     "protocol": "http",
-    "port": 3001
+    "port": 3001,
+    "debug": false
   },
   "azureClaimMapping": {
     "azureId": "ObjectId",

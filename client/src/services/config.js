@@ -107,20 +107,40 @@ export function getClaimMapping() {
   return defaultClaimMapping;
 }
 
+export function isDebugEnabled() {
+  const savedConfig = localStorage.getItem('clientConfig');
+  if (savedConfig) {
+    try {
+      const config = JSON.parse(savedConfig);
+      return config.debug === true;
+    } catch (e) {
+      // Fall through to default
+    }
+  }
+  return false;
+}
+
 export function extractClaims(tokenPayload) {
   const mapping = getClaimMapping();
+  const debug = isDebugEnabled();
   
   const azureIdClaim = normalizeClaimName(mapping.azureId);
   const emailClaim = normalizeClaimName(mapping.email);
   const nameClaim = normalizeClaimName(mapping.name);
   const kuerzelClaim = normalizeClaimName(mapping.kuerzel);
   
-  console.log('Claim Mapping (normalisiert):', {
-    azureId: azureIdClaim,
-    email: emailClaim,
-    name: nameClaim,
-    kuerzel: kuerzelClaim
-  });
+  if (debug) {
+    console.log('=== Azure AD Token Claims ===');
+    console.log('Alle verfügbaren Claims:', Object.keys(tokenPayload));
+    console.log('Payload:', tokenPayload);
+    console.log('Claim Mapping (normalisiert):', {
+      azureId: azureIdClaim,
+      email: emailClaim,
+      name: nameClaim,
+      kuerzel: kuerzelClaim
+    });
+    console.log('============================');
+  }
   
   return {
     azureId: tokenPayload[azureIdClaim] || tokenPayload.oid || tokenPayload.sub,

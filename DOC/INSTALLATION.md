@@ -255,7 +255,8 @@ In `server/database.config.json` den `client`-Abschnitt hinzufügen:
   "server": { ... },
   "client": {
     "protocol": "http",
-    "port": 3001
+    "port": 3001,
+    "debug": false
   }
 }
 ```
@@ -266,13 +267,15 @@ In `server/database.config.json` den `client`-Abschnitt hinzufügen:
 |-----------|--------------|-------|
 | `protocol` | Verwendetes Protokoll | `http` oder `https` |
 | `port` | API-Port | `3001` (HTTP) oder `443` (HTTPS) |
+| `debug` | Debug-Logging aktivieren | `true` oder `false` |
 
 ### Entwicklung (HTTP)
 
 ```json
 "client": {
   "protocol": "http",
-  "port": 3001
+  "port": 3001,
+  "debug": true
 }
 ```
 
@@ -281,9 +284,19 @@ In `server/database.config.json` den `client`-Abschnitt hinzufügen:
 ```json
 "client": {
   "protocol": "https",
-  "port": 443
+  "port": 443,
+  "debug": false
 }
 ```
+
+### Debug-Modus
+
+Wenn `debug: true` gesetzt ist, werden in der Browser-Konsole (F12 → Console) beim Azure AD Login detaillierte Informationen angezeigt:
+- Alle verfügbaren Token-Claims
+- Der komplette Token-Payload
+- Die extrahierten Benutzerdaten
+
+Dies ist hilfreich für die Fehlersuche bei Claim-Mapping-Problemen. In Produktionsumgebungen sollte `debug: false` gesetzt werden.
 
 ### Automatische Erkennung
 
