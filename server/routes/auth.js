@@ -17,7 +17,7 @@ router.get('/debug', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { azureId, email, name, password } = req.body;
+    const { azureId, email, name, kuerzel, password } = req.body;
     
     const db = getConfigDB();
     
@@ -31,10 +31,11 @@ router.post('/login', async (req, res) => {
       
       if (!user) {
         const userName = name || email.split('@')[0];
+        const userKuerzel = kuerzel || null;
         await db.run(`
           INSERT INTO users (azure_id, email, name, kuerzel, role, password_set)
           VALUES (?, ?, ?, ?, 'standard', 1)
-        `, [azureId, email, userName, azureId]);
+        `, [azureId, email, userName, userKuerzel]);
         user = await db.queryOne('SELECT * FROM users WHERE azure_id = ?', [azureId]);
       }
       

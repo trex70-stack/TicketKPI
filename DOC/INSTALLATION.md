@@ -374,6 +374,48 @@ Falls E-Mail nicht im Token enthalten ist:
 2. **Add optional claim**
 3. `email` und `preferred_username` hinzufügen
 
+### Claim-Mapping konfigurieren
+
+Die Anwendung extrahiert Benutzerdaten aus dem Azure AD ID-Token. Das Mapping kann in `server/database.config.json` konfiguriert werden:
+
+```json
+{
+  "azureClaimMapping": {
+    "azureId": "oid",
+    "email": "preferred_username",
+    "name": "name",
+    "kuerzel": "onprem_sam_account_name"
+  }
+}
+```
+
+#### Verfügbare Claims
+
+| App-Feld | Standard-Claim | Beschreibung |
+|----------|----------------|--------------|
+| `azureId` | `oid` | Eindeutige Azure AD Objekt-ID |
+| `email` | `preferred_username` | E-Mail-Adresse / Benutzername |
+| `name` | `name` | Vollständiger Name |
+| `kuerzel` | `onprem_sam_account_name` | SAM-Account-Name (für Kürzel) |
+
+#### Häufig verwendete Claims
+
+| Claim-Name | Beschreibung |
+|------------|--------------|
+| `oid` | Object ID (eindeutig) |
+| `sub` | Subject ID |
+| `preferred_username` | Bevorzugter Benutzername |
+| `email` | E-Mail-Adresse |
+| `name` | Anzeigename |
+| `onprem_sam_account_name` | On-premises SAM Account Name |
+| `given_name` | Vorname |
+| `family_name` | Nachname |
+| `upn` | User Principal Name |
+
+#### Hinweis zum Kürzel
+
+Das `kuerzel`-Feld wird verwendet, um Benutzer den Reporter/Agent-Filtern zuzuordnen. Der `onprem_sam_account_name` enthält typischerweise das Active Directory Konto-Kürzel (z.B. "mmueller").
+
 ### Entwickler-Modus
 
 Ohne Azure AD Konfiguration zeigt die Login-Seite automatisch den **Entwickler-Modus** an. Damit kann man sich mit einer beliebigen E-Mail-Adresse anmelden (nur für Testzwecke).

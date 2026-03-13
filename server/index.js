@@ -32,7 +32,13 @@ app.get('/api/config', (req, res) => {
   const config = getConfig();
   res.json({
     protocol: config.client?.protocol || 'http',
-    port: config.client?.port || config.server?.port || 3001
+    port: config.client?.port || config.server?.port || 3001,
+    azureClaimMapping: config.azureClaimMapping || {
+      azureId: 'oid',
+      email: 'preferred_username',
+      name: 'name',
+      kuerzel: 'onprem_sam_account_name'
+    }
   });
 });
 

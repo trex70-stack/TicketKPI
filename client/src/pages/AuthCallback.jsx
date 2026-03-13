@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { extractClaims } from '../services/config.js';
 
 export default function AuthCallback() {
   const { login } = useAuth();
@@ -26,11 +27,13 @@ export default function AuthCallback() {
 
       try {
         const payload = JSON.parse(atob(idToken.split('.')[1]));
+        const claims = extractClaims(payload);
         
         await login(
-          payload.oid || payload.sub,
-          payload.email || payload.preferred_username,
-          payload.name
+          claims.azureId,
+          claims.email,
+          claims.name,
+          claims.kuerzel
         );
 
         navigate('/');

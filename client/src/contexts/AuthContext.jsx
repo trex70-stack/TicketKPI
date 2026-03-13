@@ -37,12 +37,12 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const login = async (azureId, email, name) => {
+  const login = async (azureId, email, name, kuerzel) => {
     try {
       const response = await fetch(`${getApiBase()}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ azureId, email, name })
+        body: JSON.stringify({ azureId, email, name, kuerzel })
       });
 
       if (!response.ok) {

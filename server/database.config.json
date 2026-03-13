@@ -19,6 +19,12 @@
     "protocol": "http",
     "port": 3001
   },
+  "azureClaimMapping": {
+    "azureId": "oid",
+    "email": "preferred_username",
+    "name": "name",
+    "kuerzel": "onprem_sam_account_name"
+  },
   "email": {
     "enabled": false,
     "host": "smtp.example.com",
