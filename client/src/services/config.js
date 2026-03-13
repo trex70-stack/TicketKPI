@@ -3,8 +3,7 @@ let cachedConfig = null;
 const defaultClaimMapping = {
   azureId: 'oid',
   email: 'preferred_username',
-  name: 'name',
-  kuerzel: 'OnPremisesSamAccountName'
+  name: 'name'
 };
 
 const azureToJwtClaimMap = {
@@ -12,18 +11,13 @@ const azureToJwtClaimMap = {
   'ObjectIdentifier': 'oid',
   'UserPrincipalName': 'upn',
   'PreferredUsername': 'preferred_username',
-  'OnPremisesSamAccountName': 'onprem_sam_account_name',
-  'OnPremisesSecurityIdentifier': 'onprem_sid',
   'GivenName': 'given_name',
   'Surname': 'family_name',
   'FamilyName': 'family_name',
   'DisplayName': 'name',
   'Name': 'name',
   'Email': 'email',
-  'TenantId': 'tid',
-  'JobTitle': 'jobTitle',
-  'Department': 'department',
-  'CompanyName': 'companyName'
+  'TenantId': 'tid'
 };
 
 function normalizeClaimName(name) {
@@ -59,7 +53,9 @@ export async function getClientConfig() {
       cachedConfig = { 
         protocol: 'http', 
         port: '3001',
-        azureClaimMapping: defaultClaimMapping
+        debug: false,
+        azureClaimMapping: defaultClaimMapping,
+        graphApi: { enabled: false }
       };
     }
   } catch (error) {
@@ -67,7 +63,9 @@ export async function getClientConfig() {
     cachedConfig = { 
       protocol: 'http', 
       port: '3001',
-      azureClaimMapping: defaultClaimMapping
+      debug: false,
+      azureClaimMapping: defaultClaimMapping,
+      graphApi: { enabled: false }
     };
   }
   
@@ -127,7 +125,6 @@ export function extractClaims(tokenPayload) {
   const azureIdClaim = normalizeClaimName(mapping.azureId);
   const emailClaim = normalizeClaimName(mapping.email);
   const nameClaim = normalizeClaimName(mapping.name);
-  const kuerzelClaim = normalizeClaimName(mapping.kuerzel);
   
   if (debug) {
     console.log('=== Azure AD Token Claims ===');
@@ -136,8 +133,7 @@ export function extractClaims(tokenPayload) {
     console.log('Claim Mapping (normalisiert):', {
       azureId: azureIdClaim,
       email: emailClaim,
-      name: nameClaim,
-      kuerzel: kuerzelClaim
+      name: nameClaim
     });
     console.log('============================');
   }
@@ -145,8 +141,7 @@ export function extractClaims(tokenPayload) {
   return {
     azureId: tokenPayload[azureIdClaim] || tokenPayload.oid || tokenPayload.sub,
     email: tokenPayload[emailClaim] || tokenPayload.preferred_username || tokenPayload.email,
-    name: tokenPayload[nameClaim] || tokenPayload.name,
-    kuerzel: tokenPayload[kuerzelClaim] || tokenPayload.onprem_sam_account_name
+    name: tokenPayload[nameClaim] || tokenPayload.name
   };
 }
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getApiBase } from '../services/config.js';
+import { isGraphEnabled, getGraphScopes } from '../services/graph.js';
 
 export default function Login() {
   const { login } = useAuth();
@@ -22,11 +23,17 @@ export default function Login() {
       return;
     }
 
+    let scopes = 'openid profile email';
+    if (isGraphEnabled()) {
+      const graphScopes = getGraphScopes();
+      scopes = `openid profile email ${graphScopes.join(' ')}`;
+    }
+
     const loginUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize` +
       `?client_id=${clientId}` +
-      `&response_type=id_token` +
+      `&response_type=id_token token` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&scope=openid profile email` +
+      `&scope=${encodeURIComponent(scopes)}` +
       `&response_mode=fragment` +
       `&nonce=default-nonce`;
 

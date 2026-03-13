@@ -59,6 +59,35 @@ router.put('/:id/kuerzel', async (req, res) => {
   }
 });
 
+router.put('/:id/graph-fields', async (req, res) => {
+  try {
+    const { kuerzel, department, jobTitle } = req.body;
+    const db = getConfigDB();
+    
+    const fields = [];
+    const values = [];
+    
+    if (kuerzel !== undefined) {
+      fields.push('kuerzel = ?');
+      values.push(kuerzel || null);
+    }
+    
+    if (fields.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    fields.push('updated_at = datetime("now")');
+    values.push(req.params.id);
+    
+    await db.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+    
+    const user = await db.queryOne('SELECT id, email, name, kuerzel, role FROM users WHERE id = ?', [req.params.id]);
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.put('/:id', async (req, res) => {
   try {
     const { name, email, kuerzel } = req.body;

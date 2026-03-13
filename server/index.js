@@ -37,8 +37,13 @@ app.get('/api/config', (req, res) => {
     azureClaimMapping: config.azureClaimMapping || {
       azureId: 'oid',
       email: 'preferred_username',
-      name: 'name',
-      kuerzel: 'onprem_sam_account_name'
+      name: 'name'
+    },
+    graphApi: config.graphApi || {
+      enabled: false,
+      scopes: ['User.Read'],
+      fields: { kuerzel: 'onPremisesSamAccountName' },
+      updateExistingUsers: true
     }
   });
 });

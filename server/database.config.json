@@ -20,11 +20,18 @@
     "port": 3001,
     "debug": false
   },
+  "graphApi": {
+    "enabled": true,
+    "scopes": ["User.Read"],
+    "fields": {
+      "kuerzel": "onPremisesSamAccountName"
+    },
+    "updateExistingUsers": true
+  },
   "azureClaimMapping": {
     "azureId": "ObjectId",
     "email": "PreferredUsername",
-    "name": "Name",
-    "kuerzel": "OnPremisesSamAccountName"
+    "name": "Name"
   },
   "email": {
     "enabled": false,

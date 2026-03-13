@@ -380,6 +380,49 @@ VITE_AZURE_TENANT_ID=ihre-tenant-id
 VITE_AZURE_REDIRECT_URI=http://IHRE-DOMAIN/auth/callback
 ```
 
+### Microsoft Graph API für Kürzel konfigurieren
+
+Für das Kürzel (z.B. SAM Account Name) wird Microsoft Graph API verwendet.
+
+**1. API Permissions hinzufügen:**
+1. App Registration → **API permissions** → **Add a permission**
+2. **Microsoft Graph** → **Delegated permissions**
+3. `User.Read` auswählen und hinzufügen
+4. Ggf. **Grant admin consent** klicken
+
+**2. Konfiguration in `database.config.json`:**
+
+```json
+{
+  "graphApi": {
+    "enabled": true,
+    "scopes": ["User.Read"],
+    "fields": {
+      "kuerzel": "onPremisesSamAccountName"
+    },
+    "updateExistingUsers": true
+  }
+}
+```
+
+**Parameter:**
+
+| Parameter | Beschreibung |
+|-----------|--------------|
+| `enabled` | Graph API aktivieren |
+| `scopes` | Benötigte Graph API Scopes |
+| `fields` | Mapping von App-Feldern zu Graph-Eigenschaften |
+| `updateExistingUsers` | Bestehende Benutzer bei Login aktualisieren |
+
+**Verfügbare Graph API Felder:**
+
+| App-Feld | Graph API Eigenschaft | Beschreibung |
+|----------|----------------------|--------------|
+| `kuerzel` | `onPremisesSamAccountName` | SAM Account Name |
+| `department` | `department` | Abteilung |
+| `jobTitle` | `jobTitle` | Berufsbezeichnung |
+| `officeLocation` | `officeLocation` | Bürostandort |
+
 ### Token-Claims konfigurieren (optional)
 
 Falls E-Mail nicht im Token enthalten ist:
@@ -396,13 +439,12 @@ Die Anwendung extrahiert Benutzerdaten aus dem Azure AD ID-Token. Das Mapping ka
   "azureClaimMapping": {
     "azureId": "ObjectId",
     "email": "PreferredUsername",
-    "name": "Name",
-    "kuerzel": "OnPremisesSamAccountName"
+    "name": "Name"
   }
 }
 ```
 
-**Hinweis:** Sie können sowohl Azure AD Eigenschaftsnamen (z.B. `OnPremisesSamAccountName`) als auch JWT Claim-Namen (z.B. `onprem_sam_account_name`) verwenden. Die Anwendung wandelt diese automatisch um.
+**Hinweis:** Sie können sowohl Azure AD Eigenschaftsnamen (z.B. `PreferredUsername`) als auch JWT Claim-Namen (z.B. `preferred_username`) verwenden. Die Anwendung wandelt diese automatisch um.
 
 #### Verfügbare Claims
 
@@ -411,24 +453,8 @@ Die Anwendung extrahiert Benutzerdaten aus dem Azure AD ID-Token. Das Mapping ka
 | `azureId` | ObjectId | `ObjectId` | `oid` |
 | `email` | PreferredUsername | `PreferredUsername`, `UserPrincipalName` | `preferred_username`, `upn` |
 | `name` | Name | `Name`, `DisplayName` | `name` |
-| `kuerzel` | OnPremisesSamAccountName | `OnPremisesSamAccountName` | `onprem_sam_account_name` |
 
-#### Weitere Azure AD Eigenschaften
-
-| Azure AD Eigenschaft | JWT Claim | Beschreibung |
-|---------------------|-----------|--------------|
-| `ObjectId` | `oid` | Eindeutige Azure AD Objekt-ID |
-| `UserPrincipalName` | `upn` | User Principal Name |
-| `PreferredUsername` | `preferred_username` | Bevorzugter Benutzername |
-| `OnPremisesSamAccountName` | `onprem_sam_account_name` | SAM Account Name |
-| `GivenName` | `given_name` | Vorname |
-| `Surname` / `FamilyName` | `family_name` | Nachname |
-| `JobTitle` | `jobTitle` | Berufsbezeichnung |
-| `Department` | `department` | Abteilung |
-
-#### Hinweis zum Kürzel
-
-Das `kuerzel`-Feld wird verwendet, um Benutzer den Reporter/Agent-Filtern zuzuordnen. Der `onprem_sam_account_name` enthält typischerweise das Active Directory Konto-Kürzel (z.B. "mmueller").
+**Wichtig:** Das `kuerzel` wird nicht mehr über Token-Claims bezogen, sondern über Microsoft Graph API (siehe oben).
 
 ### Entwickler-Modus
 
