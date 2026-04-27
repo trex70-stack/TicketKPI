@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { fetchFilters } from './services/api';
@@ -9,6 +9,7 @@ import AdminPanel from './pages/AdminPanel';
 import ReporterDashboard from './pages/ReporterDashboard';
 import ManagementDashboard from './pages/ManagementDashboard';
 import AgentDashboard from './pages/AgentDashboard';
+import KanbanBoard from './pages/KanbanBoard';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 
@@ -45,7 +46,7 @@ return (
 
 function DashboardLayout() {
   const { user, logout, isAdmin } = useAuth();
-  const [activeView, setActiveView] = useState('reporter');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState(null);
   const [filtersLoading, setFiltersLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -53,6 +54,21 @@ function DashboardLayout() {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
   });
+
+  const getInitialView = () => {
+    const viewParam = searchParams.get('view');
+    if (viewParam) return viewParam;
+    return 'reporter';
+  };
+
+  const [activeView, setActiveViewState] = useState(getInitialView);
+
+  const setActiveView = (view) => {
+    setActiveViewState(view);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('view', view);
+    setSearchParams(newParams, { replace: true });
+  };
 
   useEffect(() => {
     loadFilters();
@@ -123,6 +139,11 @@ function DashboardLayout() {
           return <AgentDashboard filters={filters} preselectedAgent={isPreselected ? user.kuerzel : null} />;
         }
         return null;
+      case 'kanban':
+        if (isInAgentList()) {
+          return <KanbanBoard filters={filters} preselectedAgent={isPreselected ? user.kuerzel : null} />;
+        }
+        return null;
       default:
         return null;
     }
@@ -167,6 +188,7 @@ function DashboardLayout() {
     
     if (isInAgentList()) {
       views.push({ id: 'agent', label: 'Agent' });
+      views.push({ id: 'kanban', label: 'Kanban' });
     }
     
     return views;
@@ -176,7 +198,11 @@ function DashboardLayout() {
 
   useEffect(() => {
     if (availableViews.length > 0 && !availableViews.find(v => v.id === activeView) && activeView !== 'admin') {
-      setActiveView(availableViews[0].id);
+      const newView = availableViews[0].id;
+      setActiveViewState(newView);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('view', newView);
+      setSearchParams(newParams, { replace: true });
     }
   }, [availableViews.length, activeView]);
 

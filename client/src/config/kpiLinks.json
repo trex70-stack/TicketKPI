@@ -12,5 +12,19 @@
       "link": "http://cedm.contact.de/info/cs_ticket_ticket?search_on_navigate=true&search_attributes[0]=cs_ticket_ticket.reporter&search_values[0]={kuerzel}",
       "description": "Alle Tickets"
     }
+  },
+  "kanban": {
+    "ticketDetail": {
+      "link": "https://cedm.contact.de/info/cs_ticket_ticket/{ticketId}?active_tab_id=CsTicketCorrespondence",
+      "description": "Ticket-Details öffnen"
+    },
+    "bookEffort": {
+      "link": "https://cedm.contact.de/operation/CDB_Create/projAufwand?p={\"cdbprojaufwand.projektname\":\"CON-IT\",\"cdbprojaufwand.kundennummer\":\"CON\",\"cdbprojaufwand.position\":\"003\",\"cdbprojaufwand.projektnummer\":\"P012830\",\"cdbprojaufwand.cdb_project_id\":\"P019325\",\"cdbprojaufwand.task_id\":\"T000272404\",\"cdbprojaufwand.klasse\":\"Project Work\",\"cdbprojaufwand.bemerkung\":\"{ticketId}: {title}\",\"cdbprojaufwand.kategorie\":\"CONTACT\",\"cdbprojaufwand.berechnen\":\"nein\"}",
+      "description": "Aufwand buchen"
+    },
+    "changeStatus": {
+      "link": "https://cedm.contact.de/operation/CDB_Workflow/cs_ticket_ticket?object_navigation_id={ticketId}&p={\"zielstatus\": \"{status}\"}",
+      "description": "Ticket-Status ändern"
+    }
   }
 }

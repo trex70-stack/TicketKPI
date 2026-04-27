@@ -14,6 +14,8 @@ import agentRouter from './routes/agent.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import invitationsRouter from './routes/invitations.js';
+import exportRouter from './export/export-route.js';
+import kanbanRouter, { initStatusLabelsTable } from './routes/kanban.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -55,6 +57,8 @@ app.use('/api/filters', filtersRouter);
 app.use('/api/reporter', reporterRouter);
 app.use('/api/management', managementRouter);
 app.use('/api/agent', agentRouter);
+app.use('/api/export', exportRouter);
+app.use('/api/kanban', kanbanRouter);
 
 async function startServer() {
   try {
@@ -96,7 +100,10 @@ async function startServer() {
     
     await initDB();
     console.log('Database initialized successfully');
-    
+
+    await initStatusLabelsTable();
+    console.log('Status labels table initialized');
+
     initEmailService();
     
     app.listen(PORT, '0.0.0.0', () => {

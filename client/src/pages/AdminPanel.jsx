@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getApiBase } from '../services/config.js';
-import { ArrowLeft, Shield, User, Briefcase, Trash2, UserPlus, Pencil, X, Check, Sun, Moon, Mail, Clock, Send, Copy } from 'lucide-react';
+import { fetchStatusLabels, saveStatusLabels } from '../services/api';
+import { ArrowLeft, Shield, User, Briefcase, Trash2, UserPlus, Pencil, X, Check, Sun, Moon, Mail, Clock, Send, Tag, Save } from 'lucide-react';
 
 export default function AdminPanel({ onBack }) {
   const { user } = useAuth();
@@ -26,11 +27,33 @@ export default function AdminPanel({ onBack }) {
   });
 
   const [activeTab, setActiveTab] = useState('users');
+  const [statusLabels, setStatusLabels] = useState({
+    '0': 'Neu',
+    // '20': 'Warte auf Rückfrage', // TODO: Später aktivieren wenn in DB verwendet
+    '80': 'In Bearbeitung',
+    // '150': 'In Prüfung', // TODO: Später aktivieren wenn in DB verwendet
+    '200': 'Geschlossen'
+  });
+  const [editingLabels, setEditingLabels] = useState(false);
+
+  const STATUS_ORDER = ['0', '80', '200'];
 
   useEffect(() => {
     loadUsers();
     loadPendingInvitations();
+    loadStatusLabels();
   }, []);
+
+  const loadStatusLabels = async () => {
+    try {
+      const data = await fetchStatusLabels();
+      if (data.labels) {
+        setStatusLabels(data.labels);
+      }
+    } catch (err) {
+      console.error('Failed to load status labels:', err);
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
@@ -232,9 +255,25 @@ export default function AdminPanel({ onBack }) {
     }
   };
 
-  const copyInviteLink = (inviteUrl) => {
-    navigator.clipboard?.writeText(inviteUrl);
-    setSuccess('Link in Zwischenablage kopiert');
+  const handleSaveStatusLabels = async () => {
+    setError('');
+    setSuccess('');
+    try {
+      await saveStatusLabels(statusLabels);
+      setSuccess('Status-Labels gespeichert');
+      setEditingLabels(false);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleLabelChange = (code, value) => {
+    setStatusLabels(prev => ({ ...prev, [code]: value }));
+  };
+
+  const cancelEditLabels = () => {
+    loadStatusLabels();
+    setEditingLabels(false);
   };
 
   const startEdit = (u) => {
@@ -616,6 +655,13 @@ export default function AdminPanel({ onBack }) {
             </span>
           )}
         </button>
+        <button 
+          style={tabStyle(activeTab === 'status-labels')} 
+          onClick={() => setActiveTab('status-labels')}
+        >
+          <Tag size={14} style={{ display: 'inline', marginRight: '0.5rem' }} />
+          Status-Labels
+        </button>
       </div>
 
       {activeTab === 'users' && (
@@ -814,6 +860,75 @@ export default function AdminPanel({ onBack }) {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {activeTab === 'status-labels' && (
+        <div style={tableContainerStyle}>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Tag size={18} />
+              Status-Labels konfigurieren
+            </h3>
+            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+              Diese Texte werden im Kanban-Board angezeigt und für die CEDM-Operation verwendet.
+            </p>
+          </div>
+
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Status-Code</th>
+                <th style={thStyle}>Anzeigetext</th>
+              </tr>
+            </thead>
+            <tbody>
+              {STATUS_ORDER.map(code => (
+                <tr key={code}>
+                  <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{code}</td>
+                  <td style={tdStyle}>
+                    {editingLabels ? (
+                      <input
+                        type="text"
+                        value={statusLabels[code] || ''}
+                        onChange={(e) => handleLabelChange(code, e.target.value)}
+                        style={inputStyle}
+                      />
+                    ) : (
+                      <span>{statusLabels[code]}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem' }}>
+            {editingLabels ? (
+              <>
+                <button onClick={handleSaveStatusLabels} style={submitButtonStyle}>
+                  <Save size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                  Speichern
+                </button>
+                <button onClick={cancelEditLabels} style={cancelButtonStyle}>
+                  Abbrechen
+                </button>
+              </>
+            ) : (
+              <button onClick={() => setEditingLabels(true)} style={submitButtonStyle}>
+                <Pencil size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                Bearbeiten
+              </button>
+            )}
+          </div>
+
+          <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            <p><strong>Hinweis:</strong></p>
+            <ul style={{ margin: '0.5rem 0 0 1rem' }}>
+              <li>Der Anzeigetext wird beim Drag &amp; Drop im Kanban-Board als Status an die CEDM-Operation übergeben.</li>
+              <li>Änderungen wirken sich sofort auf neue Drag &amp; Drop-Operationen aus.</li>
+            </ul>
+          </div>
         </div>
       )}
     </div>

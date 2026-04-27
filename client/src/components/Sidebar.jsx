@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getApiBase } from '../services/config.js';
-import { LayoutDashboard, User, Users, Settings, ChevronLeft, ChevronRight, Shield, Moon, Sun, LogOut, Key, ChevronDown, ChevronUp } from 'lucide-react';
+import { LayoutDashboard, User, Users, Settings, ChevronLeft, ChevronRight, Shield, Moon, Sun, LogOut, Key, ChevronDown, ChevronUp, Kanban } from 'lucide-react';
 
 export function Sidebar({ activeView, setActiveView, isAdmin, availableViews, darkMode, setDarkMode, onLogout }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -128,6 +128,7 @@ export function Sidebar({ activeView, setActiveView, isAdmin, availableViews, da
       case 'reporter': return User;
       case 'management': return LayoutDashboard;
       case 'agent': return Users;
+      case 'kanban': return Kanban;
       default: return User;
     }
   };
